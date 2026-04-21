@@ -1,0 +1,21 @@
+# Build folders
+Debug/
+Release/
+
+# Object files
+*.o
+*.d
+
+# Executables
+*.elf
+*.bin
+*.hex
+*.map
+
+# IDE settings
+.settings/
+.metadata/
+*.launch
+
+# Logs
+*.log
