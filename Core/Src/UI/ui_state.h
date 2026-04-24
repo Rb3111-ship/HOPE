@@ -7,6 +7,8 @@
 
 #ifndef SRC_UI_UI_STATE_H_
 #define SRC_UI_UI_STATE_H_
+#include <stdbool.h>
+#include <stdint.h>
 
 typedef enum {
 
@@ -30,12 +32,12 @@ typedef enum {
 	UI_STATE_MUSIC_LIST,
 	UI_STATE_NOWPLAYING_DF,
 	UI_STATE_NOWPLAYING_BLE,
-	UI_STATE_TIMER_MENU
+	UI_STATE_TIME_SETUP
 } ui_state_t;
 
 //Overlay
 typedef enum {
-	OVERLAY_NONE, OVERLAY_VOLUME, OVERLAY_LIGHT_MENU
+	OVERLAY_NONE, OVERLAY_VOLUME, OVERLAY_LIGHT_MENU, OVERLAY_TIMER
 } overlay_type_t;
 
 
@@ -53,13 +55,12 @@ typedef struct{
 
 //Used for every command the UI has to react too
 typedef struct {
-evt_type_t evt;
+    evt_type_t evt;  // Event type (e.g., enum for button press, sensor data, etc.)
 
-union {
-	uint16_t value;
-	sensor_data_t sensor;
-} data;
-
+    union {
+        uint16_t value;        // For simple values
+        sensor_data_t sensor;  // For sensor data
+    } data;
 } ui_msg_t;
 
 #endif /* SRC_UI_UI_STATE_H_ */

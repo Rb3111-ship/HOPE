@@ -8,8 +8,20 @@
 #ifndef SRC_MUSIC_H_
 #define SRC_MUSIC_H_
 
-typedef struct{
+typedef enum {
 
-}music_comm_t;
+	EVT_PLAY,
+	EVT_NEXT,
+	EVT_PREV,
+	EVT_VOL_UP,
+	EVT_VOL_DOWN,
+	EVT_TIMER
+}comm_type_t;
+
+typedef struct{
+	comm_type_t comm;
+	uint16_t data;
+}music_msg_t;
+
 
 #endif /* SRC_MUSIC_H_ */

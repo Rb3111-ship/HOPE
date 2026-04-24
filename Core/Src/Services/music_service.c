@@ -8,6 +8,7 @@
 #include "main.h"
 #include "df_player_driver.h"
 #include <stdint.h>
+#include <stdbool.h>
 
 
 uint8_t current_vol = 10;

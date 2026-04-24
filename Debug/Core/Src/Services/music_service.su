@@ -1,0 +1,2 @@
+../Core/Src/Services/music_service.c:19:6:audio_service_play	16	static
+../Core/Src/Services/music_service.c:31:6:audio_service_pause	4	static

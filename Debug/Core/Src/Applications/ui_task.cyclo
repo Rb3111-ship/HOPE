@@ -1,0 +1,2 @@
+../Core/Src/Applications/ui_task.c:21:6:HAL_GPIO_EXTI_Callback	15
+../Core/Src/Applications/ui_task.c:57:6:ui_Task	24

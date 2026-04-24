@@ -9,6 +9,7 @@
 #define INC_DF_PLAYER_DRIVER_H_
 
 #include <stdint.h>
+#include <stdbool.h>
 
 
 #define TRACK_NEXT 1
