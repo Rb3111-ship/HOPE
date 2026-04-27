@@ -11,11 +11,13 @@
 typedef enum {
 
 	EVT_PLAY,
+	EVT_STOP,
 	EVT_NEXT,
 	EVT_PREV,
 	EVT_VOL_UP,
 	EVT_VOL_DOWN,
-	EVT_TIMER
+	EVT_TIMER,
+	EVT_TOGGLE_PAUSE
 }comm_type_t;
 
 typedef struct{

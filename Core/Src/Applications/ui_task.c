@@ -15,6 +15,7 @@
 static ui_state_t currentState = UI_STATE_MAIN;
 static overlay_t currentOverlay = { .active = false, .type = OVERLAY_NONE,
 		.timeout_ms = 0 };
+static music_msg_t music_msg;
 
 #define DEBOUNCE_DELAY_MS 50
 
@@ -57,10 +58,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) { // called automatically by HAL 
 void ui_Task(void *pvParameters) {
 
 	ui_msg_t msg;
+	const TickType_t xDelay100ms = pdMS_TO_TICKS(100UL);
 
 	for (;;) {
 
-		if (xQueueReceive(uiQueueHandle, &msg, portMAX_DELAY) == pdPASS) {
+		if (xQueueReceive(uiQueueHandle, &msg, xDelay100ms) == pdPASS) {
 
 			switch (currentState) {
 			case UI_STATE_MAIN:
@@ -83,29 +85,53 @@ void ui_Task(void *pvParameters) {
 					currentState = UI_STATE_MAIN;
 				} else if (msg.evt == EVT_BTN_NEXT) {
 					//TODO: move down menu
+					ui_menu_navigate(1);
 				}
 
 				else if (msg.evt == EVT_BTN_PREV) {
 					// TODO:move up menu
+					ui_menu_navigate(-1);
 				}
 
 				else if (msg.evt == EVT_BTN_PLAY) {
 					// TODO:open current menu item
+					switch (ui_get_menu_icon()) {
+					case 0:
+						currentState = UI_STATE_MUSIC_LIST;
+						break;
+					case 1:
+						currentState = UI_STATE_NOWPLAYING_BLE;
+						break;
+					case 2:
+						currentState = UI_STATE_TIME_SETUP;
+						break;
+					}
 				}
 
 				break;
 			case UI_STATE_MUSIC_LIST:
 				if (msg.evt == EVT_BTN_MENU) {
 					currentState = UI_STATE_MUSIC_MENU;
-					// TODO:if music was playing the STOP
+					music_msg.comm = EVT_STOP;
+					xQueueSend(musicQueueHandle, &music_msg, portMAX_DELAY);
+
 				} else if (msg.evt == EVT_BTN_NEXT) {
-					// TODO:move down list
+					// move down list
+					ui_song_list_navigate(1);
 				}
 
 				else if (msg.evt == EVT_BTN_PREV) {
-					//TODO:move up list
+					//move up list
+					ui_song_list_navigate(-1);
 				} else if (msg.evt == EVT_BTN_PLAY) {
-					//TODO:PLAY current song on list
+
+					uint8_t selected_song = ui_get_selected_index();
+					music_msg.comm = EVT_PLAY;
+					music_msg.data = selected_song + 1;
+					xQueueSend(musicQueueHandle, &music_msg, portMAX_DELAY);
+					ui_nowplaying_set(selected_song,         // tell UI renderer
+							song_list[selected_song]);
+					currentState = UI_STATE_NOWPLAYING_DF;
 				}
 
 				break;
@@ -120,6 +146,9 @@ void ui_Task(void *pvParameters) {
 					//TODO:move PREV song
 				} else if (msg.evt == EVT_BTN_PLAY) {
 					//TODO:if song playing PAUSE the song else if paused then PLAY
+					music_msg.comm = EVT_TOGGLE_PAUSE;
+					xQueueSend(musicQueueHandle, &music_msg, portMAX_DELAY);
+
 				}
 
 				else if (msg.evt == EVT_BTN_TIMER) {
@@ -140,10 +169,22 @@ void ui_Task(void *pvParameters) {
 
 			case UI_STATE_TIME_SETUP:
 				if (msg.evt == EVT_BTN_MENU) {
+					//TODO: get the hour and min from rtc before going to time setup
+					uint8_t h, m; //place holders
+					ui_time_setup_seed(h, m);
 					currentState = UI_STATE_MUSIC_MENU;
 
 				}
-				 // TODO: add actions for time changing
+
+				if (msg.evt == EVT_BTN_PREV) {
+
+				}
+
+				if (msg.evt == EVT_BTN_NEXT) {
+
+				}
+
+				// TODO: add actions for time changing
 				break;
 
 			default:
@@ -159,12 +200,14 @@ void ui_Task(void *pvParameters) {
 
 			if (msg.evt == EVT_BTN_VOL_UP || msg.evt == EVT_BTN_VOL_DOWN) {
 				currentOverlay.active = true;
-				currentOverlay.type = OVERLAY_VOLUME;
+
 				// TODO: Send command to Music Task to adjust physical volume
 			}
 
-			ui_renderer_update(currentState, currentOverlay);
 		}
+
+		live_data_fill();
+		ui_renderer_update(currentState, &currentOverlay);
 
 	}
 }

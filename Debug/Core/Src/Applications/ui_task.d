@@ -45,6 +45,10 @@ Core/Src/Applications/ui_task.o: ../Core/Src/Applications/ui_task.c \
  D:/ST\ projects/Hope_V1/Core/Src/UI/ui_state.h \
  ../Core/Src/Applications/music.h \
  D:/ST\ projects/Hope_V1/Core/Src/UI/ui_renderer.h \
+ D:/ST\ projects/Hope_V1/Drivers/OLED/ssd1306.h \
+ D:/ST\ projects/Hope_V1/Drivers/OLED/ssd1306_conf.h \
+ D:/ST\ projects/Hope_V1/Drivers/OLED/ssd1306_fonts.h \
+ D:/ST\ projects/Hope_V1/Drivers/OLED/ssd1306.h \
  D:/ST\ projects/Hope_V1/Core/Src/UI/ui_state.h
 ../Core/Src/Applications/tasks.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h:
@@ -93,4 +97,8 @@ Core/Src/Applications/ui_task.o: ../Core/Src/Applications/ui_task.c \
 D:/ST\ projects/Hope_V1/Core/Src/UI/ui_state.h:
 ../Core/Src/Applications/music.h:
 D:/ST\ projects/Hope_V1/Core/Src/UI/ui_renderer.h:
+D:/ST\ projects/Hope_V1/Drivers/OLED/ssd1306.h:
+D:/ST\ projects/Hope_V1/Drivers/OLED/ssd1306_conf.h:
+D:/ST\ projects/Hope_V1/Drivers/OLED/ssd1306_fonts.h:
+D:/ST\ projects/Hope_V1/Drivers/OLED/ssd1306.h:
 D:/ST\ projects/Hope_V1/Core/Src/UI/ui_state.h:

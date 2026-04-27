@@ -94,11 +94,11 @@ void StartDefaultTask(void *argument);
 BaseType_t createTasks() {
 
 	BaseType_t status1 = xTaskCreate(ui_Task, "UI Task", 1000,
-	NULL, 1,
+	NULL, 2,
 	NULL);
 
 	BaseType_t status2 = xTaskCreate(music_Task, "music Task", 1000,
-	NULL, 1,
+	NULL, 2,
 	NULL);
 
 	BaseType_t status3 = xTaskCreate(light_Task, "light Task", 1000,

@@ -72,7 +72,7 @@ bool pause() {
 	df_cmd_t cmd = { .cmd = PAUSE, .param_high = NONE, .param_low = NONE };
 	return enqueue(cmd);
 }
-
+//--------------------------------------------------------------------------------------------TODO: make toggle pause
 bool stop() {
 	df_cmd_t cmd = { .cmd = STOP, .param_high = NONE, .param_low = NONE };
 	return enqueue(cmd);

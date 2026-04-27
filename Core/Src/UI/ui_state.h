@@ -37,12 +37,12 @@ typedef enum {
 
 //Overlay
 typedef enum {
-	OVERLAY_NONE, OVERLAY_VOLUME, OVERLAY_LIGHT_MENU, OVERLAY_TIMER
+	OVERLAY_NONE, OVERLAY_VOLUME_UP, OVERLAY_VOLUME_DOWN, OVERLAY_LIGHT_MENU, OVERLAY_TIMER
 } overlay_type_t;
 
 
 typedef struct {
-	bool active;
+	uint8_t active;
 	overlay_type_t type;
 	uint32_t timeout_ms;
 } overlay_t;

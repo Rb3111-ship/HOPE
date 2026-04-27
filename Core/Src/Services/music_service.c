@@ -10,25 +10,18 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-
 uint8_t current_vol = 10;
 uint8_t current_track;
 bool is_playing = false;
 bool is_ble_active = false;
 
-bool audio_service_play(uint16_t track){
-	if(!is_ble_active){
-		if(track == current_track){
-			return true;
-		}
-		else{
-			if(!play(track)) return false;
-		}
-	}
-	return true;
+void audio_service_play(uint16_t track) {
+
+	if(play(track));
+
 }
 
-bool audio_service_pause(){
+bool audio_service_pause() {
 
 }
 bool audio_service_next();
