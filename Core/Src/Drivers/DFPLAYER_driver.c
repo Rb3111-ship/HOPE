@@ -1,6 +1,7 @@
 #include "df_player_driver.h"
 #include <stdbool.h>
 #include "main.h"
+#include <stdint.h>
 
 #define VERSION 0xFF
 #define START_BYTE 0x7E
@@ -8,10 +9,9 @@
 #define PLAY 0x0D
 #define PAUSE 0x0E
 #define STOP 0x16
-#define STOP 0x16
 #define PREV 0x02
 #define NEXT 0x01
-#define SET_VOL 0x06
+#define SET_VOL 0x06 //remember must be initialized to send vol, so init the df player when you send vol
 #define NONE 0x00
 #define RESET 0x0C
 #define END_BYTE 0xEF

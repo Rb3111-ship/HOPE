@@ -1,0 +1,2 @@
+../Core/Src/Applications/ui_task.c:23:6:HAL_GPIO_EXTI_Callback	32	static,ignoring_inline_asm
+../Core/Src/Applications/ui_task.c:59:6:ui_Task	32	static

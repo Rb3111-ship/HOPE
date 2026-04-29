@@ -12,6 +12,9 @@
 #include "ssd1306_fonts.h"
 #include "ui_state.h"
 #include <stdint.h>
+#include "time_service.h"
+
+#define MAX_SONGS       25
 
 typedef struct {
 	uint8_t hours;           // 0-23  (from RTC)
@@ -19,9 +22,7 @@ typedef struct {
 	int8_t temperature;           // °C, signed (from DHT11)
 	uint8_t humidity;           // % RH  (from DHT11)
 	uint8_t volume;           // 0-30  (DFPlayer Mini)
-	uint8_t song_count;           // total tracks available
 } ui_render_data_t;
-
 
 //if the data does not exist, does it keep previous data?
 /* ═══════════════════════════════════════════════════════════════
@@ -36,8 +37,7 @@ typedef struct {
  *  If you read names dynamically from the SD card, replace this static array
  *  with a char song_list[MAX_SONGS][32] buffer and fill it at runtime.
  */
-static const char *song_list[MAX_SONGS] = {
-"Twinkle Twinkle", /* index 0  */
+static const char *song_list[MAX_SONGS] = { "Twinkle Twinkle", /* index 0  */
 "Amazing Grace", /* index  1 */
 "You are my sunshine", /* index  2 */
 "Jesu idombo", /* index  3 */
@@ -52,7 +52,16 @@ static const char *song_list[MAX_SONGS] = {
 "Itsy Bitsy Spider", /* index 12  */
 "Wheels on the Bus", /* index  13 */
 "Mary Had a Lamb", /* index  14 */
-/* ─── Slots 10-19: add more songs here ─── */
+"Silent Night", /* index  15 */
+"All the Pretty Little Horses", /* index  16 */
+"Golden Slumbers", /* index  17 */
+"Schubert Lullaby", /* index  18 */
+"Sleep Baby Sleep", /* index  19 */
+"Go to Sleep Little Baby", /* index  20 */
+"Are You Sleeping", /* index  21 */
+"Somewhere Over the Rainbow", /* index  22 */
+"Beautiful Dreamer", /* index  23 */
+"Summertime", /* index  24 */
 };
 
 extern ui_render_data_t ui_data;
@@ -79,12 +88,12 @@ void ui_song_list_navigate(int8_t dir);           // +1 down / -1 up
 void ui_menu_navigate(int8_t dir);           // +1 next icon / -1 prev
 void ui_time_setup_next_field(void);           // toggle hours <-> minutes
 void ui_time_setup_adjust(int8_t dir);           // +1 / -1
-void ui_time_setup_get(uint8_t *h, uint8_t *m);           // read confirmed time
+void ui_time_setup_get();           // read confirmed time
 void ui_light_navigate(int8_t dir);
 void ui_timer_navigate(int8_t dir);
 int ui_get_light_mode(void);           // 0=Moonlight .. 4=Torch
 int ui_get_timer_minutes(void);           // 5/10/15/30/60
-
+void ui_nowplaying_skip(int8_t dir);
 int ui_get_menu_icon(void);
 
 //Populate ui_render_data_t before calling ui_renderer_update

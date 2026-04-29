@@ -15,11 +15,11 @@ uint8_t current_track;
 bool is_playing = false;
 bool is_ble_active = false;
 
-void audio_service_play(uint16_t track) {
+//void audio_service_play(uint16_t track) {
 
-	if(play(track));
+//	if(play(track));
 
-}
+//}
 
 bool audio_service_pause() {
 
@@ -28,8 +28,7 @@ bool audio_service_next();
 bool audio_service_prev();
 bool audio_service_init();
 bool audio_service_stop();
-bool audio_service_volume_up();
-bool audio_service_volume_down();
+bool audio_service_volume();
 
 bool audio_service_ble_enable();
 bool audio_service_ble_disable();

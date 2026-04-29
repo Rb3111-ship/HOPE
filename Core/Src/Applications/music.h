@@ -14,15 +14,18 @@ typedef enum {
 	EVT_STOP,
 	EVT_NEXT,
 	EVT_PREV,
-	EVT_VOL_UP,
-	EVT_VOL_DOWN,
+	EVT_SET_VOL,
 	EVT_TIMER,
-	EVT_TOGGLE_PAUSE
+	EVT_TOGGLE_PAUSE,
+	EVT_DF_ON,
+	EVT_BLE_ON,
+	EVT_BLE_OFF
 }comm_type_t;
 
 typedef struct{
 	comm_type_t comm;
 	uint16_t data;
+	uint8_t time;
 }music_msg_t;
 
 

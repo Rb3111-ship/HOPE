@@ -65,7 +65,7 @@
  *                        // write h,m to your RTC here
  *
  *  5. SONG LIST (UI_STATE_MUSIC_LIST)
- *       Edit song_list[] below. Set ui_data.song_count = number of entries.
+ *       Edit song_list[] below. Set song_count = number of entries.
  *       On "select" button: read ui_data.song_index for the chosen track,
  *       then call dfplayer_play(ui_data.song_index + 1).
  *
@@ -86,7 +86,6 @@
 
 #define DISPLAY_W       128u
 #define DISPLAY_H       128u
-#define MAX_SONGS       20
 #define VOLUME_MAX      30          /* DFPlayer Mini maximum volume            */
 #define LIST_ROW_H      11          /* pixels per list row (Font_6x8 + 3 gap) */
 #define LIST_VISIBLE    10          /* rows visible at once in a list          */
@@ -98,24 +97,29 @@
  * all reset at the same time and the scene feels alive.
  */
 #define ANIM_TICK_MAX   240u
-
+const uint8_t song_count = 25;
 /* ═══════════════════════════════════════════════════════════════
  *  LIVE DATA — populate before every ui_renderer_update() call
  * ═══════════════════════════════════════════════════════════════ */
 void live_data_fill() {
-	ui_render_data_t ui_data = { .hours = 0, .minutes = 0, .temperature = 22,
-			.humidity = 60, .volume = 15,
-			 .song_count = 10 };
 
+	uint32_t last_sensor_read = 0;
+	uint32_t now = osKernelGetTickCount();
+	if ((now - last_sensor_read) >= pdMS_TO_TICKS(1000)) {
+		last_sensor_read = now;
 
-//	ui_render_data_t ui_data = { .hours = get_TimeH(), .minutes = get_TimeMins(), .temperature = get_Temp_Data(),
-//			.humidity = get_Hum_Data(), .volume = 15, .song_count = 25 };
-	//song count is already good
+		get_Time(&ui_data.hours, &ui_data.minutes);
+	}
 
-//
+	if ((now - last_sensor_read) >= pdMS_TO_TICKS(5000)) {
+		last_sensor_read = now;
+		ui_data.temperature = get_Temp_Data();
+		ui_data.humidity = get_Hum_Data();
+	}
+
+	ui_data.volume = getVolume();
 
 }
-
 
 /* ═══════════════════════════════════════════════════════════════
  *  PRIVATE STATE
@@ -149,9 +153,9 @@ static uint32_t song_scroll_last = 0;
  *  Read every frame by UI_DrawPlayDisplay_DF / _ble.
  *  Never needs to talk to the music task.
  * ────────────────────────────────────────────────────────────────────── */
-static char     np_song_name[32] = "---";
-static uint8_t  np_song_index    = 0;
-static uint8_t  np_is_playing    = 0;
+static char np_song_name[32] = "---";
+static uint8_t np_song_index = 0;
+static uint8_t np_is_playing = 0;
 
 /* ═══════════════════════════════════════════════════════════════
  *  NAVIGATION HELPERS  (call from button handler)
@@ -159,7 +163,7 @@ static uint8_t  np_is_playing    = 0;
 
 /* Song list: dir = +1 (down) or -1 (up) */
 void ui_song_list_navigate(int8_t dir) {
-	int count = (ui_data.song_count > 0) ? (int) ui_data.song_count : 1;
+	int count = (song_count > 0) ? (int) song_count : 1;
 	music_selected += dir;
 	if (music_selected < 0)
 		music_selected = 0;
@@ -193,26 +197,28 @@ void ui_time_setup_adjust(int8_t dir) {
 /* Pre-load the time editor with the current RTC time.
  * Call this BEFORE transitioning to UI_STATE_TIME_SETUP:
  *   ui_time_setup_seed(rtc_hours, rtc_minutes); */
-void ui_time_setup_seed(uint8_t h, uint8_t m) {
-	time_h = h % 24u;
-	time_m = m % 60u;
+void ui_time_setup_seed() {
+	time_h = ui_data.hours % 24u;
+	time_m = ui_data.minutes % 60u;
 	time_field = 0;
 }
 
 /* Read the confirmed time values. Call after the user presses "confirm". */
-void ui_time_setup_get(uint8_t *h, uint8_t *m) {
-	*h = time_h;
-	*m = time_m;
+void ui_time_setup_get() {
+	set_TimeMins(time_m);
+	set_TimeH(time_h);
+	confirm_time();
 }
 
 /* Lights overlay navigation */
 void ui_light_navigate(int8_t dir) {
-	light_selected = (light_selected + (int) dir + 5) % 5;
+
+	light_selected = (light_selected + (int) dir + 6) % 6;
 }
 
 /* Timer overlay navigation */
 void ui_timer_navigate(int8_t dir) {
-	timer_selected = (timer_selected + (int) dir + 5) % 5;
+	timer_selected = (timer_selected + (int) dir + 6) % 6;
 }
 
 /* Read selected light mode: 0=Moonlight 1=Starry Night 2=Warm Breathing
@@ -225,11 +231,9 @@ int ui_get_light_mode(void) {
 /* Read selected timer in minutes: 5 / 10 / 15 / 30 / 60.
  * Call after user confirms the timer overlay selection. */
 int ui_get_timer_minutes(void) {
-	static const int timers[5] = { 5, 10, 15, 30, 60 };
+	static const int timers[6] = { 0, 5, 10, 15, 30, 60 };
 	return timers[timer_selected];
 }
-
-
 
 /* Call this ONCE when the user selects a song and your state machine
  * transitions to UI_STATE_NOWPLAYING_DF.
@@ -245,14 +249,14 @@ int ui_get_timer_minutes(void) {
  *   app.ui_state = UI_STATE_NOWPLAYING_DF;
  */
 void ui_nowplaying_set(uint8_t index, const char *name) {
-    np_song_index = index;
-    strncpy(np_song_name, name, sizeof(np_song_name) - 1);
-    np_song_name[sizeof(np_song_name) - 1] = '\0';
-    np_is_playing = 1;
-    /* Reset marquee scroll so the new song name starts from the beginning */
-    song_scroll_offset = 0;
-    song_scroll_pause  = 0;
-    song_scroll_last   = anim_tick;
+	np_song_index = index;
+	strncpy(np_song_name, name, sizeof(np_song_name) - 1);
+	np_song_name[sizeof(np_song_name) - 1] = '\0';
+	np_is_playing = 1;
+	/* Reset marquee scroll so the new song name starts from the beginning */
+	song_scroll_offset = 0;
+	song_scroll_pause = 0;
+	song_scroll_last = anim_tick;
 }
 
 /* Call this when your pause/resume button toggles playback.
@@ -265,13 +269,41 @@ void ui_nowplaying_set(uint8_t index, const char *name) {
  *   ui_nowplaying_toggle_pause();
  */
 void ui_nowplaying_toggle_pause(void) {
-    np_is_playing ^= 1u;
+	np_is_playing ^= 1u;
 }
-
 
 // ui_renderer.c
 uint8_t ui_get_selected_index(void) {
-    return (uint8_t)music_selected;
+	return (uint8_t) music_selected;
+}
+
+/* Call from your button handler ONLY when in UI_STATE_NOWPLAYING_DF.
+ * dir = +1 for next song, -1 for previous.
+ * Wraps around at both ends of the list.
+ *
+ * Example in your button handler:
+ *   if (app.ui_state == UI_STATE_NOWPLAYING_DF) {
+ *       ui_nowplaying_skip(+1);                          // update UI
+ *       music_cmd_t cmd = { .track = np_song_index + 1 };
+ *       osMessageQueuePut(musicQHandle, &cmd, 0, 0);    // tell music task
+ *   }
+ *
+ * Read the new track index AFTER calling this function since
+ * np_song_index will have already been updated inside ui_nowplaying_set.
+ */
+void ui_nowplaying_skip(int8_t dir) {
+	int count = (song_count > 0) ? (int) song_count : 1;
+	int next = ((int) np_song_index + (int) dir + count) % count;
+
+	/* Keep the list cursor in sync so if the user goes back to the
+	 * list screen the highlight is on the correct song               */
+	music_selected = next;
+	if (music_selected < music_scroll)
+		music_scroll = music_selected;
+	if (music_selected >= music_scroll + LIST_VISIBLE)
+		music_scroll = music_selected - LIST_VISIBLE + 1;
+
+	ui_nowplaying_set((uint8_t) next, song_list[next]);
 }
 /* ═══════════════════════════════════════════════════════════════
  *  PRIVATE DRAWING HELPERS
@@ -376,8 +408,6 @@ static void draw_bunny(int cx, int head_top_y, uint8_t frame) {
 	ssd1306_Line(clamp8(cx + 5), clamp8(ly + 6 + rl), clamp8(cx + 9),
 			clamp8(ly + 6 + rl), White);
 }
-
-
 
 /* ── Small Bluetooth icon, top-left anchor (x,y), ~10×12 px ── */
 static void draw_bt_icon(int x, int y, SSD1306_COLOR col) {
@@ -751,7 +781,7 @@ void UI_DrawMenu(void) {
  *
  *  Hook-up:
  *    1. Populate song_list[] above with your track names.
- *    2. Set ui_data.song_count = number of tracks.
+ *    2. Set song_count = number of tracks.
  *    3. Call ui_song_list_navigate(+1/-1) from UP/DOWN buttons.
  * ────────────────────────────────────────────────────────────────*/
 void UI_DrawMusicList(void) {
@@ -765,7 +795,7 @@ void UI_DrawMusicList(void) {
 	ssd1306_SetCursor(0u, 0u);
 	ssd1306_WriteString(" ", Font_6x8, Black); /* force cursor reset if needed */
 
-	int count = (int) ui_data.song_count;
+	int count = (int) song_count;
 	draw_list(song_list, count, music_selected, music_scroll, 14u, 114u, 121u);
 }
 
@@ -785,67 +815,67 @@ void UI_DrawMusicList(void) {
 
  * ────────────────────────────────────────────────────────────────*/
 void UI_DrawPlayDisplay_DF(void) {
-    char buf[32];
+	char buf[32];
 
-    /* ── Header bar (inverted) ── */
-    ssd1306_FillRectangle(0u, 0u, 127u, 12u, White);
+	/* ── Header bar (inverted) ── */
+	ssd1306_FillRectangle(0u, 0u, 127u, 12u, White);
 
-    /* Play ▶ or pause ‖ icon in black on white header */
-    if (np_is_playing) {
-        for (int i = 0; i < 5; i++)
-            ssd1306_Line((uint8_t)(3+i), (uint8_t)(2+i),
-                         (uint8_t)(3+i), (uint8_t)(10-i), Black);
-    } else {
-        ssd1306_Line(3u, 2u, 3u, 10u, Black);
-        ssd1306_Line(7u, 2u, 7u, 10u, Black);
-    }
+	/* Play ▶ or pause ‖ icon in black on white header */
+	if (np_is_playing) {
+		for (int i = 0; i < 5; i++)
+			ssd1306_Line((uint8_t) (3 + i), (uint8_t) (2 + i),
+					(uint8_t) (3 + i), (uint8_t) (10 - i), Black);
+	} else {
+		ssd1306_Line(3u, 2u, 3u, 10u, Black);
+		ssd1306_Line(7u, 2u, 7u, 10u, Black);
+	}
 
-    /* Track number */
-    snprintf(buf, sizeof(buf), "TRACK  %02d", (int)np_song_index + 1);
-    ssd1306_SetCursor(32u, 3u);
-    ssd1306_WriteString(buf, Font_6x8, Black);
+	/* Track number */
+	snprintf(buf, sizeof(buf), "TRACK  %02d", (int) np_song_index + 1);
+	ssd1306_SetCursor(32u, 3u);
+	ssd1306_WriteString(buf, Font_6x8, Black);
 
-    /* ── Song name — scrolling marquee for long names ── */
-    {
-        int name_len = (int)strlen(np_song_name);
-        int max_ch   = 17;   /* ~119 px at Font_7x10 (7 px/char) */
+	/* ── Song name — scrolling marquee for long names ── */
+	{
+		int name_len = (int) strlen(np_song_name);
+		int max_ch = 17; /* ~119 px at Font_7x10 (7 px/char) */
 
-        if (name_len <= max_ch) {
-            draw_centered_str(np_song_name, Font_7x10, 7u, 18u);
-        } else {
-            if ((anim_tick - song_scroll_last) >= 5u) {
-                song_scroll_last = anim_tick;
-                if (song_scroll_pause > 0) {
-                    song_scroll_pause--;
-                } else {
-                    song_scroll_offset++;
-                    if (song_scroll_offset >= name_len) {
-                        song_scroll_offset = 0;
-                        song_scroll_pause  = 8;
-                    }
-                }
-            }
-            char window[20];
-            for (int i = 0; i < max_ch; i++)
-                window[i] = np_song_name[(song_scroll_offset + i) % name_len];
-            window[max_ch] = '\0';
-            ssd1306_SetCursor(0u, 18u);
-            ssd1306_WriteString(window, Font_7x10, White);
-        }
-    }
+		if (name_len <= max_ch) {
+			draw_centered_str(np_song_name, Font_7x10, 7u, 18u);
+		} else {
+			if ((anim_tick - song_scroll_last) >= 5u) {
+				song_scroll_last = anim_tick;
+				if (song_scroll_pause > 0) {
+					song_scroll_pause--;
+				} else {
+					song_scroll_offset++;
+					if (song_scroll_offset >= name_len) {
+						song_scroll_offset = 0;
+						song_scroll_pause = 8;
+					}
+				}
+			}
+			char window[20];
+			for (int i = 0; i < max_ch; i++)
+				window[i] = np_song_name[(song_scroll_offset + i) % name_len];
+			window[max_ch] = '\0';
+			ssd1306_SetCursor(0u, 18u);
+			ssd1306_WriteString(window, Font_7x10, White);
+		}
+	}
 
-    ssd1306_Line(0u, 30u, 127u, 30u, White);
+	ssd1306_Line(0u, 30u, 127u, 30u, White);
 
-    /* ── Animation zone: full remaining space ── */
-    /* y=31 to y=118, height = 88 px — more room now that the progress
-     * bar and time string are gone, so the bunny gets a bigger stage.  */
-    draw_anim_scene(31u, 88u);
+	/* ── Animation zone: full remaining space ── */
+	/* y=31 to y=118, height = 88 px — more room now that the progress
+	 * bar and time string are gone, so the bunny gets a bigger stage.  */
+	draw_anim_scene(31u, 88u);
 
-    /* ── Compact volume strip ── */
-    ssd1306_Line(0u, 119u, 127u, 119u, White);
-    ssd1306_SetCursor(2u, 121u);
-    ssd1306_WriteString("V", Font_6x8, White);
-    draw_vol_bar(12u, 120u, 113u, 7u, ui_data.volume);
+	/* ── Compact volume strip ── */
+	ssd1306_Line(0u, 119u, 127u, 119u, White);
+	ssd1306_SetCursor(2u, 121u);
+	ssd1306_WriteString("V", Font_6x8, White);
+	draw_vol_bar(12u, 120u, 113u, 7u, ui_data.volume);
 }
 /* ────────────────────────────────────────────────────────────────
  *  NOW PLAYING — Bluetooth
@@ -992,8 +1022,9 @@ void UI_DrawVolumeDwn(void) {
  *                 3=Color Cycle  4=Torch
  * ────────────────────────────────────────────────────────────────*/
 void UI_DrawLightsOverlay(void) {
-	static const char *light_items[5] = { " Moonlight", " Starry Night",
-			" Warm Breathing", " Color Cycle", " Torch", };
+
+	static const char *light_items[6] = { "Off", " Moonlight", " Starry Night",
+			" Warm Breathing", " Colour Cycle", " Lamp", };
 
 	ssd1306_FillRectangle(8u, 8u, 119u, 119u, Black);
 	ssd1306_DrawRectangle(8u, 8u, 119u, 119u, White);
@@ -1004,7 +1035,7 @@ void UI_DrawLightsOverlay(void) {
 	/* Small star icon left of title */
 	draw_small_star(20, 15, Black);
 
-	draw_list(light_items, 5, light_selected, 0, 23u, 82u, 114u);
+	draw_list(light_items, 6, light_selected, 0, 23u, 82u, 114u);
 
 	/* Footer */
 	ssd1306_Line(8u, 106u, 119u, 106u, White);
@@ -1023,8 +1054,8 @@ void UI_DrawLightsOverlay(void) {
  *  Options: 5 / 10 / 15 / 30 / 60 minutes.
  * ────────────────────────────────────────────────────────────────*/
 void UI_DrawTimerOverlay(void) {
-	static const char *timer_items[5] = { "   5 minutes", "  10 minutes",
-			"  15 minutes", "  30 minutes", "  60 minutes", };
+	static const char *timer_items[6] = { "  OFF ", "   5 minutes",
+			"  10 minutes", "  15 minutes", "  30 minutes", "  60 minutes", };
 
 	ssd1306_FillRectangle(8u, 8u, 119u, 119u, Black);
 	ssd1306_DrawRectangle(8u, 8u, 119u, 119u, White);
@@ -1033,7 +1064,7 @@ void UI_DrawTimerOverlay(void) {
 	ssd1306_FillRectangle(8u, 8u, 119u, 21u, White);
 	draw_centered_str("SLEEP TIMER", Font_6x8, 6u, 12u);
 
-	draw_list(timer_items, 5, timer_selected, 0, 23u, 82u, 114u);
+	draw_list(timer_items, 6, timer_selected, 0, 23u, 82u, 114u);
 
 	/* Footer */
 	ssd1306_Line(8u, 106u, 119u, 106u, White);

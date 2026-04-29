@@ -32,7 +32,11 @@ typedef enum {
 	UI_STATE_MUSIC_LIST,
 	UI_STATE_NOWPLAYING_DF,
 	UI_STATE_NOWPLAYING_BLE,
-	UI_STATE_TIME_SETUP
+	UI_STATE_TIME_SETUP,
+	UI_TIMER,
+	UI_LIGHT_LIST,
+	UI_TIMER_NOWPLAYING
+
 } ui_state_t;
 
 //Overlay
@@ -42,9 +46,7 @@ typedef enum {
 
 
 typedef struct {
-	uint8_t active;
 	overlay_type_t type;
-	uint32_t timeout_ms;
 } overlay_t;
 
 
