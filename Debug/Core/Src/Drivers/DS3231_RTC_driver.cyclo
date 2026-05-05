@@ -1,0 +1,4 @@
+../Core/Src/Drivers/DS3231_RTC_driver.c:18:6:deciToBCD	3
+../Core/Src/Drivers/DS3231_RTC_driver.c:34:6:BCDtoDeci	3
+../Core/Src/Drivers/DS3231_RTC_driver.c:50:10:get_RTC_Data	1
+../Core/Src/Drivers/DS3231_RTC_driver.c:59:6:set_RTC_Data	2

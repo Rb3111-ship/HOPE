@@ -47,7 +47,8 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  D:/ST\ projects/Hope_V1/Core/Src/UI/ui_state.h \
  D:/ST\ projects/Hope_V1/Core/Src/Applications/music.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/semphr.h \
- ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h
+ ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h \
+ D:/ST\ projects/Hope_V1/Core/Src/Drivers/DHT22_driver.h
 ../Core/Inc/main.h:
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h:
 ../Core/Inc/stm32f4xx_hal_conf.h:
@@ -98,3 +99,4 @@ D:/ST\ projects/Hope_V1/Core/Src/UI/ui_state.h:
 D:/ST\ projects/Hope_V1/Core/Src/Applications/music.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/semphr.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h:
+D:/ST\ projects/Hope_V1/Core/Src/Drivers/DHT22_driver.h:

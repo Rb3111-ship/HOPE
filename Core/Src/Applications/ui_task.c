@@ -11,16 +11,20 @@
 #include "ui_state.h"
 #include "music.h"
 #include "ui_renderer.h"
+#include <stdint.h>
+#include "task.h"
+#include "cmsis_os.h"
 
 static ui_state_t currentState = UI_STATE_MAIN;
 static ui_state_t previousState;
-static overlay_type_t previousOverlay ;
-static overlay_t currentOverlay = {  .type = OVERLAY_NONE,
-		.timeout_ms = 0 };
+static overlay_t previousOverlay;
+static overlay_t currentOverlay = { .type = OVERLAY_NONE };
 static music_msg_t music_msg;
 uint8_t saved_song = 0; //default saved song is song 1
 static uint32_t lightOverlay_open_tick;
 static uint32_t volOverlay_open_tick;
+static uint8_t play_state = 0;
+uint8_t set_Vol = 5;
 
 #define DEBOUNCE_DELAY_MS 50
 #define LIGHT_OVERLAY_PERIOD_MS 5000
@@ -62,6 +66,29 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) { // called automatically by HAL 
 
 }
 
+void volume(evt_type_t msg) {
+
+	volOverlay_open_tick = osKernelGetTickCount();
+	previousOverlay.type = currentOverlay.type;
+	if (msg == EVT_BTN_VOL_UP) {
+		currentOverlay.type = OVERLAY_VOLUME_UP;
+		set_Vol++;
+	} else if (msg == EVT_BTN_VOL_DOWN) {
+		currentOverlay.type = OVERLAY_VOLUME_DOWN;
+		set_Vol--;
+	}
+
+	if(set_Vol < 0)
+		set_Vol = 0;
+	if(set_Vol > 30)
+			set_Vol = 30;
+	set_volume(set_Vol);
+	music_msg.comm = EVT_SET_VOL;
+	music_msg.time = 0u;
+	music_msg.data = set_Vol;
+	xQueueSend(musicQueueHandle, &music_msg, portMAX_DELAY);
+}
+
 void ui_Task(void *pvParameters) {
 
 	ui_msg_t msg;
@@ -75,7 +102,7 @@ void ui_Task(void *pvParameters) {
 
 			case UI_STATE_MAIN:
 				if (msg.evt == EVT_BTN_MENU) {
-					currentState = UI_STATE_MUSIC_MENU;
+					currentState = UI_STATE_MENU;
 
 				}
 
@@ -83,24 +110,21 @@ void ui_Task(void *pvParameters) {
 					currentOverlay.type = OVERLAY_TIMER;
 					currentState = UI_TIMER;
 
-				} else if (msg.evt == EVT_SENSOR_DATA_READY) {
-					// TODO:get new sensor data and update display
-
 				}
 				break;
 
-			case UI_STATE_MUSIC_MENU:
+			case UI_STATE_MENU:
 				if (msg.evt == EVT_BTN_MENU) {
 					currentState = UI_STATE_MAIN;
 				}
 
 				else if (msg.evt == EVT_BTN_NEXT) {
-					//TODO: move down menu
+					//move down menu
 					ui_menu_navigate(1);
 				}
 
 				else if (msg.evt == EVT_BTN_PREV) {
-					// TODO:move up menu
+					// move up menu
 					ui_menu_navigate(-1);
 				}
 
@@ -109,6 +133,9 @@ void ui_Task(void *pvParameters) {
 					switch (ui_get_menu_icon()) {
 					case 0:
 						currentState = UI_STATE_MUSIC_LIST;
+						music_msg.data = 0;
+						music_msg.time = 0;
+						xQueueSend(musicQueueHandle, &music_msg, portMAX_DELAY);
 						break;
 					case 1:
 						currentState = UI_STATE_NOWPLAYING_BLE;
@@ -120,7 +147,7 @@ void ui_Task(void *pvParameters) {
 						break;
 					case 2:
 						currentState = UI_STATE_TIME_SETUP;
-						ui_time_setup_seed(h, m);
+						ui_time_setup_seed();
 						break;
 					}
 				}
@@ -129,7 +156,7 @@ void ui_Task(void *pvParameters) {
 
 			case UI_STATE_MUSIC_LIST:
 				if (msg.evt == EVT_BTN_MENU) {
-					currentState = UI_STATE_MUSIC_MENU;
+					currentState = UI_STATE_MENU;
 					music_msg.comm = EVT_STOP;
 					music_msg.data = 0;
 					music_msg.time = 0; //stops timer function when you exit music
@@ -154,7 +181,14 @@ void ui_Task(void *pvParameters) {
 					xQueueSend(musicQueueHandle, &music_msg, portMAX_DELAY);
 					ui_nowplaying_set(selected_song,         // tell UI renderer
 							song_list[selected_song]);
+					play_state = 1; // the song is playing  not paused
 					currentState = UI_STATE_NOWPLAYING_DF;
+				}
+
+				else if (msg.evt == EVT_BTN_VOL_UP
+						|| msg.evt == EVT_BTN_VOL_DOWN) {
+					volume(msg.evt);
+
 				}
 
 				break;
@@ -189,11 +223,19 @@ void ui_Task(void *pvParameters) {
 				}
 
 				else if (msg.evt == EVT_BTN_PLAY) {
-					uint8_t selected_song = ui_get_selected_index();
-					music_msg.data = selected_song + 1;
-					music_msg.comm = EVT_TOGGLE_PAUSE;
-					music_msg.time = 0;
-					xQueueSend(musicQueueHandle, &music_msg, portMAX_DELAY);
+					if (play_state) {
+						play_state = 0; // song paused
+						music_msg.data = 0;
+						music_msg.comm = EVT_PAUSE;
+						music_msg.time = 0;
+						xQueueSend(musicQueueHandle, &music_msg, portMAX_DELAY);
+					} else {
+						play_state = 1;
+						music_msg.data = 0;
+						music_msg.comm = EVT_RESUME;
+						music_msg.time = 0;
+						xQueueSend(musicQueueHandle, &music_msg, portMAX_DELAY);
+					}
 
 				}
 
@@ -205,11 +247,17 @@ void ui_Task(void *pvParameters) {
 
 				}
 
+				else if (msg.evt == EVT_BTN_VOL_UP
+						|| msg.evt == EVT_BTN_VOL_DOWN) {
+					volume(msg.evt);
+
+				}
+
 				break;
 
 			case UI_STATE_NOWPLAYING_BLE:
 				if (msg.evt == EVT_BTN_MENU) {
-					currentState = UI_STATE_MUSIC_MENU;
+					currentState = UI_STATE_MENU;
 					music_msg.comm = EVT_BLE_OFF;
 					music_msg.time = 0u;
 					music_msg.data = 0; //if data == 0 then turn off ble
@@ -220,7 +268,7 @@ void ui_Task(void *pvParameters) {
 
 			case UI_STATE_TIME_SETUP:
 				if (msg.evt == EVT_BTN_MENU) {
-					currentState = UI_STATE_MUSIC_MENU;
+					currentState = UI_STATE_MENU;
 
 				}
 
@@ -238,7 +286,7 @@ void ui_Task(void *pvParameters) {
 
 				if (msg.evt == EVT_BTN_TIMER) {
 					ui_time_setup_get();
-					currentState = UI_STATE_MUSIC_MENU;
+					currentState = UI_STATE_MENU;
 				}
 
 				break;
@@ -280,20 +328,29 @@ void ui_Task(void *pvParameters) {
 					music_msg.time = timer_value;
 					xQueueSend(musicQueueHandle, &music_msg, portMAX_DELAY); //current song keeps playing
 					currentOverlay.type = OVERLAY_NONE;
+					currentState = UI_STATE_NOWPLAYING_DF;
 					break;
+
+				case EVT_BTN_VOL_UP:
+				case EVT_BTN_VOL_DOWN:
+					volume(msg.evt);
+					break;
+
 				}
+				break;
+
 
 			case UI_LIGHT_LIST:
 				if ((osKernelGetTickCount() - lightOverlay_open_tick)
-						>= pbMS_TO_TICKS(LIGHT_OVERLAY_PERIOD_MS)) {
+						>= pdMS_TO_TICKS(LIGHT_OVERLAY_PERIOD_MS)) {
 					currentState = previousState;
 					currentOverlay.type = OVERLAY_NONE;
 
 				} else if (msg.evt == EVT_BTN_LIGHT) {
 					ui_light_navigate(1);
 					lightOverlay_open_tick = osKernelGetTickCount();
-					xQueueSend(lightQueueHandle, ui_get_light_mode(),
-							portMax_DELAY);
+					xQueueSend(lightQueueHandle, (int* )ui_get_light_mode(),
+							portMAX_DELAY);
 				}
 				break;
 
@@ -310,27 +367,9 @@ void ui_Task(void *pvParameters) {
 
 			}
 
-			if (msg.evt == EVT_BTN_VOL_UP || msg.evt == EVT_BTN_VOL_DOWN) {
-				uint8_t set_Vol = 0;
-				volOverlay_open_tick = osKernelGetTickCount();
-				previousOverlay = currentOverlay;
-				if (msg.evt == EVT_BTN_VOL_UP) {
-					currentOverlay.type = OVERLAY_VOLUME_UP;
-					set_Vol = 1;
-				} else if (msg.evt == EVT_BTN_VOL_DOWN) {
-					currentOverlay.type = OVERLAY_VOLUME_DOWN;
-					set_Vol = -1;
-				}
-				music_msg.comm = EVT_SET_VOL;
-				music_msg.time = 0u;
-				music_msg.data = set_Vol;
-				xQueueSend(musicQueueHandle, &music_msg, portMAX_DELAY);
-
-			}
-
 			if ((osKernelGetTickCount() - lightOverlay_open_tick)
-					>= pbMS_TO_TICKS(VOL_OVERLAY_PERIOD_MS)) {
-				currentOverlay.type = previousOverlay;
+					>= pdMS_TO_TICKS(VOL_OVERLAY_PERIOD_MS)) {
+				currentOverlay.type = previousOverlay.type;
 			}
 
 			live_data_fill();

@@ -47,7 +47,7 @@ void BCDtoDeci() {
 	}
 }
 
-uint32_t* get_RTC_Data() {
+uint8_t* get_RTC_Data() {
 
 	HAL_I2C_Mem_Read(&hi2c1, ADDRS << 1, START_ADDRS, I2C_MEMADD_SIZE_8BIT,
 			raw_data, 3, pdMS_TO_TICKS(10));

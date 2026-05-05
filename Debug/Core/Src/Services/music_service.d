@@ -30,7 +30,8 @@ Core/Src/Services/music_service.o: ../Core/Src/Services/music_service.c \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h \
- ../Core/Inc/df_player_driver.h
+ D:/ST\ projects/Hope_V1/Core/Src/Drivers/DFPLAYER_driver.h \
+ D:/ST\ projects/Hope_V1/Core/Src/Drivers/ble_driver.h
 ../Core/Src/Services/music_service.h:
 ../Core/Inc/main.h:
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h:
@@ -63,4 +64,5 @@ Core/Src/Services/music_service.o: ../Core/Src/Services/music_service.c \
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h:
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h:
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h:
-../Core/Inc/df_player_driver.h:
+D:/ST\ projects/Hope_V1/Core/Src/Drivers/DFPLAYER_driver.h:
+D:/ST\ projects/Hope_V1/Core/Src/Drivers/ble_driver.h:

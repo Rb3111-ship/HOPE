@@ -19,16 +19,13 @@ typedef enum {
 	EVT_BTN_VOL_DOWN,
 	EVT_BTN_TIMER,
 	EVT_BTN_LIGHT,
-	EVT_BTN_MENU,
-	EVT_SENSOR_DATA_READY,
-	EVT_MUSIC_FINISHED  // For when the DFPlayer naturally ends a track
-
+	EVT_BTN_MENU
 } evt_type_t;
 
 //System state
 typedef enum {
 	UI_STATE_MAIN,
-	UI_STATE_MUSIC_MENU,
+	UI_STATE_MENU,
 	UI_STATE_MUSIC_LIST,
 	UI_STATE_NOWPLAYING_DF,
 	UI_STATE_NOWPLAYING_BLE,

@@ -7,8 +7,9 @@
 
 #ifndef SRC_SERVICES_SENSOR_SERVICE_H_
 #define SRC_SERVICES_SENSOR_SERVICE_H_
+#include <stdint.h>
 
-uint8_t get_Hum_Data();
-uint8_t get_Temp_Data();
+#include "DHT22_driver.h"
+void *get_sensor_Data(float * sensor_data);
 
 #endif /* SRC_SERVICES_SENSOR_SERVICE_H_ */

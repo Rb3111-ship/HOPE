@@ -6,29 +6,47 @@
  */
 #include "music_service.h"
 #include "main.h"
-#include "df_player_driver.h"
+#include "DFPLAYER_driver.h"
 #include <stdint.h>
-#include <stdbool.h>
+#include "ble_driver.h"
 
-uint8_t current_vol = 10;
+uint8_t current_vol = 10; //add  or subtract depending on whats needed
 uint8_t current_track;
-bool is_playing = false;
-bool is_ble_active = false;
+// is_playing = false;
+// is_ble_active = false;
 
-//void audio_service_play(uint16_t track) {
-
-//	if(play(track));
-
-//}
-
-bool audio_service_pause() {
-
+void auido_service_init() {
+	df_player_init();
 }
-bool audio_service_next();
-bool audio_service_prev();
-bool audio_service_init();
-bool audio_service_stop();
-bool audio_service_volume();
+void audio_service_play(uint16_t track) {
 
-bool audio_service_ble_enable();
-bool audio_service_ble_disable();
+	play(track);
+}
+void audio_service_resume() {
+	resume();
+}
+void audio_service_pause() {
+	pause();
+}
+void audio_service_next(){
+	change_track(1);
+}
+void audio_service_prev(){
+	change_track(0);
+}
+
+void audio_service_stop() {
+	stop();
+}
+
+void audio_service_volume(uint8_t current_vol) {
+	set_volume(current_vol);
+}
+
+void audio_service_ble_enable() {
+	BLE_Power_On();
+}
+void audio_service_ble_disable() {
+	BLE_Power_Off();
+}
+

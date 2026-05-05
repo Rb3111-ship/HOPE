@@ -1,0 +1,2 @@
+../Core/Src/Drivers/ble_driver.c:10:6:BLE_Power_On	8	static
+../Core/Src/Drivers/ble_driver.c:15:6:BLE_Power_Off	8	static

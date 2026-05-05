@@ -1,0 +1,6 @@
+../Core/Src/Services/time_service.c:16:6:spit_time	16	static
+../Core/Src/Services/time_service.c:28:6:get_Time	16	static
+../Core/Src/Services/time_service.c:35:6:update_time	8	static
+../Core/Src/Services/time_service.c:40:6:set_TimeMins	16	static
+../Core/Src/Services/time_service.c:44:6:set_TimeH	16	static
+../Core/Src/Services/time_service.c:49:6:confirm_time	8	static

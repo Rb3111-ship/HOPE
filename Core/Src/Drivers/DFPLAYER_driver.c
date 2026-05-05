@@ -1,4 +1,4 @@
-#include "df_player_driver.h"
+#include "DFPLAYER_driver.h"
 #include <stdbool.h>
 #include "main.h"
 #include <stdint.h>
@@ -6,26 +6,37 @@
 #define VERSION 0xFF
 #define START_BYTE 0x7E
 #define COMM_LENGTH 0x06
-#define PLAY 0x0D
+#define PLAY 0x03
 #define PAUSE 0x0E
 #define STOP 0x16
 #define PREV 0x02
 #define NEXT 0x01
-#define SET_VOL 0x06 //remember must be initialized to send vol, so init the df player when you send vol
+#define SET_VOL 0x06
 #define NONE 0x00
 #define RESET 0x0C
 #define END_BYTE 0xEF
 #define FEEDBACK_BYTE 0x01
+#define REPEAT_PLAY 0x11
+#define RESUME 0x0D
+#define SELECT_DEVICE 0x09
+#define DEVICE_SD     0x02
+#define PLAYBACK_FINISHED 0x3D
+#define DF_RX_BUF_SIZE 64
 
+uint8_t df_rx_buf[DF_RX_BUF_SIZE];
+volatile uint16_t df_old_pos = 0;
 volatile uint8_t uart_tx_ready = 1;
 volatile uint8_t uart_rx_ready = 0;
 static uint8_t pData[10];
+uint8_t playback_status = 0; // 1 <= playback finished
 Queue q;
 extern UART_HandleTypeDef huart1;
+uint8_t rx_buffer[10];
 
 void df_try_start_tx();
 bool is_empty();
 bool is_full();
+void source_select();
 
 //check for mSD card error and pass to Service----------------
 //add error checking for df player
@@ -53,44 +64,72 @@ bool enqueue(df_cmd_t cmd) {
 }
 
 // of enqueue fails return false----------------------------------------------------
-bool df_player_init() {
+void df_player_init() {
 	// send 0x0C reset
 	initQueue();
 	df_cmd_t cmd = { .cmd = RESET, .param_high = NONE, .param_low = NONE };
-	return enqueue(cmd);
+	set_volume(5);
+	source_select();
+	enqueue(cmd);
 }
 
-bool play(uint16_t track) { //if track != 0000 you play a new track
+void play(uint16_t track) { //if track != 0000 you play a new track
 	uint8_t low_byte = (track & 0x00FF);
 	uint8_t high_byte = ((track & 0XFF00) >> 8);
 	df_cmd_t cmd =
 			{ .cmd = PLAY, .param_high = high_byte, .param_low = low_byte };
-	return enqueue(cmd);
+	enqueue(cmd);
 }
 
-bool pause() {
+void source_select() {
+	uint8_t source = 2;
+	uint8_t low_byte = (DEVICE_SD & 0x00FF);
+	uint8_t high_byte = ((DEVICE_SD & 0XFF00) >> 8);
+	df_cmd_t cmd = { .cmd = SELECT_DEVICE, .param_high = high_byte, .param_low =
+			low_byte };
+	enqueue(cmd);
+}
+
+void pause() {
 	df_cmd_t cmd = { .cmd = PAUSE, .param_high = NONE, .param_low = NONE };
-	return enqueue(cmd);
-}
-//--------------------------------------------------------------------------------------------TODO: make toggle pause
-bool stop() {
-	df_cmd_t cmd = { .cmd = STOP, .param_high = NONE, .param_low = NONE };
-	return enqueue(cmd);
+	enqueue(cmd);
 }
 
-bool set_volume(uint8_t vol) {
+void stop() {
+	df_cmd_t cmd = { .cmd = STOP, .param_high = NONE, .param_low = NONE };
+	enqueue(cmd);
+}
+
+void resume() {
+	df_cmd_t cmd = { .cmd = RESUME, .param_high = NONE, .param_low = NONE };
+	enqueue(cmd);
+}
+
+//-----------------------------------------------------------------------------------use for 1 hour playback if needed
+void repeat(uint16_t track) { //Repeat tracks for longer play
+	uint8_t low_byte = (track & 0x00FF);
+	uint8_t high_byte = ((track & 0XFF00) >> 8);
+	df_cmd_t cmd = { .cmd = REPEAT_PLAY, .param_high = high_byte, .param_low =
+			low_byte };
+	enqueue(cmd);
+}
+
+//--------------------------------------------------------------------------------------------
+
+void set_volume(uint8_t vol) {
 	if (vol > 30)
 		vol = 30; //df player only gets to 30
+	if (vol < 0)
+		vol = 0;
 	uint8_t low_byte = (vol & 0x00FF);
 	uint8_t high_byte = ((vol & 0XFF00) >> 8);
 	df_cmd_t cmd = { .cmd = SET_VOL, .param_high = high_byte, .param_low =
 			low_byte };
-	return enqueue(cmd);
+	enqueue(cmd);
 
 }
 
-bool change_track(uint8_t track) {
-// if track_next go to next track else prev
+void change_track(uint8_t track) {
 
 	uint8_t command = 0;
 	if (track == TRACK_NEXT)
@@ -99,7 +138,7 @@ bool change_track(uint8_t track) {
 		command = PREV;
 	df_cmd_t cmd = { .cmd = command, .param_high = NONE, .param_low =
 	NONE };
-	return enqueue(cmd);
+	enqueue(cmd);
 }
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) { //runs in ISR
@@ -174,13 +213,4 @@ void df_try_start_tx() {
 
 }
 
-void error_check() {
-
-}
-
-//void HAL_UART_RxCpltCallback (UART_HandleTypeDef *huart) { //runs in ISR
-//	if (huart->Instance == USART1) {
-//		uart_rx_ready = 1; // The conveyer belt is empty!
-//	}
-//}
 

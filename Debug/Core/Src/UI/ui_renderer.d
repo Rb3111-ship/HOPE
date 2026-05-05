@@ -33,7 +33,23 @@ Core/Src/UI/ui_renderer.o: ../Core/Src/UI/ui_renderer.c \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h \
  D:/ST\ projects/Hope_V1/Drivers/OLED/ssd1306_fonts.h \
- D:/ST\ projects/Hope_V1/Drivers/OLED/ssd1306.h ../Core/Src/UI/ui_state.h
+ D:/ST\ projects/Hope_V1/Drivers/OLED/ssd1306.h ../Core/Src/UI/ui_state.h \
+ D:/ST\ projects/Hope_V1/Core/Src/Services/time_service.h \
+ D:/ST\ projects/Hope_V1/Core/Src/Drivers/DS3231_RTC_driver.h \
+ D:/ST\ projects/Hope_V1/Core/Src/Services/sensor_service.h \
+ D:/ST\ projects/Hope_V1/Core/Src/Drivers/DHT22_driver.h \
+ D:/ST\ projects/Hope_V1/Core/Src/Applications/tasks.h \
+ ../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h \
+ ../Core/Inc/FreeRTOSConfig.h \
+ ../Middlewares/Third_Party/FreeRTOS/Source/include/projdefs.h \
+ ../Middlewares/Third_Party/FreeRTOS/Source/include/portable.h \
+ ../Middlewares/Third_Party/FreeRTOS/Source/include/deprecated_definitions.h \
+ ../Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F/portmacro.h \
+ ../Middlewares/Third_Party/FreeRTOS/Source/include/mpu_wrappers.h \
+ ../Middlewares/Third_Party/FreeRTOS/Source/include/task.h \
+ ../Middlewares/Third_Party/FreeRTOS/Source/include/list.h \
+ ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os.h \
+ ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.h
 ../Core/Src/UI/ui_renderer.h:
 D:/ST\ projects/Hope_V1/Drivers/OLED/ssd1306.h:
 D:/ST\ projects/Hope_V1/Drivers/OLED/ssd1306_conf.h:
@@ -70,3 +86,19 @@ D:/ST\ projects/Hope_V1/Drivers/OLED/ssd1306_conf.h:
 D:/ST\ projects/Hope_V1/Drivers/OLED/ssd1306_fonts.h:
 D:/ST\ projects/Hope_V1/Drivers/OLED/ssd1306.h:
 ../Core/Src/UI/ui_state.h:
+D:/ST\ projects/Hope_V1/Core/Src/Services/time_service.h:
+D:/ST\ projects/Hope_V1/Core/Src/Drivers/DS3231_RTC_driver.h:
+D:/ST\ projects/Hope_V1/Core/Src/Services/sensor_service.h:
+D:/ST\ projects/Hope_V1/Core/Src/Drivers/DHT22_driver.h:
+D:/ST\ projects/Hope_V1/Core/Src/Applications/tasks.h:
+../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h:
+../Core/Inc/FreeRTOSConfig.h:
+../Middlewares/Third_Party/FreeRTOS/Source/include/projdefs.h:
+../Middlewares/Third_Party/FreeRTOS/Source/include/portable.h:
+../Middlewares/Third_Party/FreeRTOS/Source/include/deprecated_definitions.h:
+../Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F/portmacro.h:
+../Middlewares/Third_Party/FreeRTOS/Source/include/mpu_wrappers.h:
+../Middlewares/Third_Party/FreeRTOS/Source/include/task.h:
+../Middlewares/Third_Party/FreeRTOS/Source/include/list.h:
+../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os.h:
+../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.h:

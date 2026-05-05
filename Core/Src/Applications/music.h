@@ -11,13 +11,13 @@
 typedef enum {
 
 	EVT_PLAY,
+	EVT_RESUME,
 	EVT_STOP,
 	EVT_NEXT,
 	EVT_PREV,
 	EVT_SET_VOL,
 	EVT_TIMER,
-	EVT_TOGGLE_PAUSE,
-	EVT_DF_ON,
+	EVT_PAUSE,
 	EVT_BLE_ON,
 	EVT_BLE_OFF
 }comm_type_t;

@@ -1,1 +1,10 @@
-../Core/Src/Services/music_service.c:24:6:audio_service_pause	4	static
+../Core/Src/Services/music_service.c:18:6:auido_service_init	8	static
+../Core/Src/Services/music_service.c:21:6:audio_service_play	16	static
+../Core/Src/Services/music_service.c:25:6:audio_service_resume	8	static
+../Core/Src/Services/music_service.c:28:6:audio_service_pause	8	static
+../Core/Src/Services/music_service.c:31:6:audio_service_next	8	static
+../Core/Src/Services/music_service.c:34:6:audio_service_prev	8	static
+../Core/Src/Services/music_service.c:38:6:audio_service_stop	8	static
+../Core/Src/Services/music_service.c:42:6:audio_service_volume	16	static
+../Core/Src/Services/music_service.c:46:6:audio_service_ble_enable	8	static
+../Core/Src/Services/music_service.c:49:6:audio_service_ble_disable	8	static

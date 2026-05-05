@@ -37,12 +37,11 @@ typedef struct {
  *  If you read names dynamically from the SD card, replace this static array
  *  with a char song_list[MAX_SONGS][32] buffer and fill it at runtime.
  */
-static const char *song_list[MAX_SONGS] = { "Twinkle Twinkle", /* index 0  */
+static const char *song_list[MAX_SONGS] = {
+"Twinkle Twinkle", /* index 0  */
 "Amazing Grace", /* index  1 */
 "You are my sunshine", /* index  2 */
-"Jesu idombo", /* index  3 */
-"Hareruya kuna Jesu", /* index  4 */
-"Mekeniki Manyeruke", /* index 5  */
+
 "Brahms Lullaby", /* index 6 */
 "Rock-a-bye Baby", /* index 7  */
 "Hush Little Baby", /* index   8*/
@@ -95,12 +94,12 @@ int ui_get_light_mode(void);           // 0=Moonlight .. 4=Torch
 int ui_get_timer_minutes(void);           // 5/10/15/30/60
 void ui_nowplaying_skip(int8_t dir);
 int ui_get_menu_icon(void);
-
+void set_volume(uint8_t vol_input);
 //Populate ui_render_data_t before calling ui_renderer_update
 void live_data_fill(void);
 
 // Seed the time editor with current RTC time before entering TIME_SETUP
-void ui_time_setup_seed(uint8_t h, uint8_t m);
+void ui_time_setup_seed();
 
 void ui_nowplaying_set(uint8_t index, const char *name);
 

@@ -6,79 +6,16 @@
  */
 #include "ui_renderer.h"
 #include "ui_state.h"
-
-/*
- * ui_renderer.c
- *
- *  Baby Lullaby Device — Full UI Renderer
- *  Display : 128×128 SH1107 Monochrome OLED (SSD1306-compatible driver)
- *  Target  : STM32F412RET6  (HAL / FreeRTOS)
- *
- * ═══════════════════════════════════════════════════════════════
- *  QUICK-START: HOW TO HOOK THIS UP
- * ═══════════════════════════════════════════════════════════════
- *
- *  1. RENDERING TASK
- *     Call ui_renderer_update() every 100 ms from a FreeRTOS task
- *     or SysTick callback. This drives both display refresh and
- *     animation at ~10 Hz.
- *
- *       // In your UI task:
- *       for (;;) {
- *           ui_renderer_update(app.ui_state, &app.overlay);
- *           osDelay(100);
- *       }
- *
- *  2. LIVE DATA  →  populate ui_data before every ui_renderer_update() call
- *
- *       // RTC (STM32 HAL example):
- *       RTC_TimeTypeDef t;
- *       HAL_RTC_GetTime(&hrtc, &t, RTC_FORMAT_BIN);
- *       ui_data.hours   = t.Hours;
- *       ui_data.minutes = t.Minutes;
- *
- *       // DHT11 (call your own read function):
- *       DHT11_Read(&ui_data.temperature, &ui_data.humidity);
- *
- *       // DFPlayer volume:
- *       ui_data.volume = dfplayer_get_volume();   // range 0-30
- *
- *       // Now-playing track (DFPlayer):
- *       ui_data.song_index      = dfplayer_current_track() - 1; // 0-based
- *       ui_data.is_playing      = dfplayer_is_playing();
- *       ui_data.track_elapsed_s = dfplayer_elapsed_seconds();   // if available
- *       ui_data.track_total_s   = dfplayer_total_seconds();     // if available
- *       strncpy(ui_data.song_name, song_list[ui_data.song_index], 31);
- *
- *  3. BUTTON WIRING  →  call the navigation helpers from your button handler
- *       UP / DOWN  →  ui_song_list_navigate(±1) / ui_time_setup_adjust(±1)
- *       OK         →  ui_time_setup_next_field()
- *       MENU       →  ui_menu_navigate(±1)
- *       LIGHTS     →  ui_light_navigate(±1)
- *       TIMER      →  ui_timer_navigate(±1)
- *
- *  4. TIME CONFIRM FLOW  (UI_STATE_TIME_SETUP)
- *       - UP/DOWN     → ui_time_setup_adjust(±1)   increments active field
- *       - SHORT OK    → ui_time_setup_next_field()  hours ↔ minutes
- *       - LONG  OK    → uint8_t h, m;
- *                        ui_time_setup_get(&h, &m);
- *                        // write h,m to your RTC here
- *
- *  5. SONG LIST (UI_STATE_MUSIC_LIST)
- *       Edit song_list[] below. Set song_count = number of entries.
- *       On "select" button: read ui_data.song_index for the chosen track,
- *       then call dfplayer_play(ui_data.song_index + 1).
- *
- *
- *
- *
- */
-
 #include "ui_renderer.h"
 #include "ui_state.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include "sensor_service.h"
+#include "tasks.h"
+#include "cmsis_os.h"
+
+
 
 /* ═══════════════════════════════════════════════════════════════
  *  CONSTANTS
@@ -98,9 +35,15 @@
  */
 #define ANIM_TICK_MAX   240u
 const uint8_t song_count = 25;
+float sensor_data[2];
+uint8_t volume = 0;
 /* ═══════════════════════════════════════════════════════════════
  *  LIVE DATA — populate before every ui_renderer_update() call
  * ═══════════════════════════════════════════════════════════════ */
+
+void set_volume(uint8_t vol_input){
+	volume = vol_input;
+}
 void live_data_fill() {
 
 	uint32_t last_sensor_read = 0;
@@ -113,11 +56,14 @@ void live_data_fill() {
 
 	if ((now - last_sensor_read) >= pdMS_TO_TICKS(5000)) {
 		last_sensor_read = now;
-		ui_data.temperature = get_Temp_Data();
-		ui_data.humidity = get_Hum_Data();
+
+		get_sensor_Data(sensor_data);
+
+		ui_data.humidity = sensor_data[0];
+		ui_data.temperature = sensor_data[1];
 	}
 
-	ui_data.volume = getVolume();
+	ui_data.volume = volume;
 
 }
 
@@ -1083,7 +1029,7 @@ void ui_renderer_update(ui_state_t current_state, overlay_t *current_overlay) {
 	case UI_STATE_MAIN:
 		UI_DrawMainScreen();
 		break;
-	case UI_STATE_MUSIC_MENU:
+	case UI_STATE_MENU:
 		UI_DrawMenu();
 		break;
 	case UI_STATE_MUSIC_LIST:
@@ -1102,7 +1048,7 @@ void ui_renderer_update(ui_state_t current_state, overlay_t *current_overlay) {
 		break;
 	}
 
-	if (current_overlay != NULL && current_overlay->active) {
+	if (current_overlay != NULL) {
 		switch (current_overlay->type) {
 		case OVERLAY_VOLUME_UP:
 			UI_DrawVolumeUp();
