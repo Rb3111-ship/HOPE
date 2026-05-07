@@ -16,5 +16,4 @@ extern QueueHandle_t uiQueueHandle;
 extern QueueHandle_t musicQueueHandle;
 extern QueueHandle_t lightQueueHandle;
 
-
 #endif /* SRC_APPLICATIONS_APP_QUEUE_H_ */

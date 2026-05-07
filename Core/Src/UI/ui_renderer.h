@@ -13,6 +13,8 @@
 #include "ui_state.h"
 #include <stdint.h>
 #include "time_service.h"
+#include "alarm_service.h"
+
 
 #define MAX_SONGS       25
 
@@ -37,7 +39,7 @@ typedef struct {
  *  If you read names dynamically from the SD card, replace this static array
  *  with a char song_list[MAX_SONGS][32] buffer and fill it at runtime.
  */
-static const char *song_list[MAX_SONGS] = {
+const char *song_list[MAX_SONGS] = {
 "Twinkle Twinkle", /* index 0  */
 "Amazing Grace", /* index  1 */
 "You are my sunshine", /* index  2 */
@@ -106,5 +108,39 @@ void ui_nowplaying_set(uint8_t index, const char *name);
 void ui_nowplaying_toggle_pause(void);
 
 uint8_t ui_get_selected_index(void);
+
+
+
+
+
+
+
+/* API to give the UI context of your backend arrays */
+void UI_SetAlarmListContext(SoftwareAlarm* alarms, uint8_t max_alarms);
+
+/* Backend Callbacks (You must implement these in your backend task) */
+extern void UI_OnAlarmDeleted_Callback(uint8_t list_index);
+extern void UI_OnAlarmAdded_Callback(uint8_t list_index, uint8_t hour, uint8_t minute);
+
+/* Screen & Overlay Draw Functions */
+void UI_DrawTimeSubMenu(void);
+void UI_DrawAlarmsList(void);
+void UI_DrawAlarmSetup(void);
+void UI_DrawAlarmDeleteOverlay(void);
+
+/* Navigation Helpers for Button Handler */
+void ui_time_submenu_navigate(int8_t dir);
+int ui_get_time_submenu_selection(void);      /* Returns: 0 = Set Time, 1 = Alarms */
+
+void ui_alarms_list_navigate(int8_t dir);
+int ui_is_selected_alarm_empty(void);         /* Returns: 1 if empty, 0 if active */
+
+void ui_alarm_setup_seed(void);               /* Prepares the selected empty slot for editing */
+void ui_alarm_setup_next_field(void);         /* Toggles Hours/Minutes */
+void ui_alarm_setup_adjust(int8_t dir);       /* Increments/Decrements */
+void ui_alarm_setup_confirm(void);            /* Submits the alarm to backend */
+
+void ui_alarm_delete_navigate(int8_t dir);    /* Toggles YES / NO */
+void ui_alarm_delete_confirm(void);           /* Submits deletion to backend */
 
 #endif /* SRC_UI_UI_RENDERER_H_ */

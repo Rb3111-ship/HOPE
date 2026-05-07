@@ -1,3 +1,4 @@
-../Core/Src/Applications/ui_task.c:33:6:HAL_GPIO_EXTI_Callback	32	static,ignoring_inline_asm
-../Core/Src/Applications/ui_task.c:69:6:volume	16	static
-../Core/Src/Applications/ui_task.c:92:6:ui_Task	40	static
+../Core/Src/Applications/ui_task.c:42:6:HAL_GPIO_EXTI_Callback	32	static,ignoring_inline_asm
+../Core/Src/Applications/ui_task.c:78:6:volume	16	static
+../Core/Src/Applications/ui_task.c:102:6:timer_counter	16	static
+../Core/Src/Applications/ui_task.c:133:6:ui_Task	56	static

@@ -16,5 +16,4 @@ void ui_Task(void * pvParameters);
 void music_Task(void * pvParameters);
 void light_Task(void * pvParameters);
 
-
 #endif /* SRC_APPLICATIONS_TASKS_H_ */

@@ -105,17 +105,6 @@ void resume() {
 	enqueue(cmd);
 }
 
-//-----------------------------------------------------------------------------------use for 1 hour playback if needed
-void repeat(uint16_t track) { //Repeat tracks for longer play
-	uint8_t low_byte = (track & 0x00FF);
-	uint8_t high_byte = ((track & 0XFF00) >> 8);
-	df_cmd_t cmd = { .cmd = REPEAT_PLAY, .param_high = high_byte, .param_low =
-			low_byte };
-	enqueue(cmd);
-}
-
-//--------------------------------------------------------------------------------------------
-
 void set_volume(uint8_t vol) {
 	if (vol > 30)
 		vol = 30; //df player only gets to 30

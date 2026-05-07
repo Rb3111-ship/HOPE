@@ -16,7 +16,6 @@ typedef enum {
 	EVT_NEXT,
 	EVT_PREV,
 	EVT_SET_VOL,
-	EVT_TIMER,
 	EVT_PAUSE,
 	EVT_BLE_ON,
 	EVT_BLE_OFF
@@ -25,7 +24,6 @@ typedef enum {
 typedef struct{
 	comm_type_t comm;
 	uint16_t data;
-	uint8_t time;
 }music_msg_t;
 
 

@@ -8,10 +8,11 @@
 #include "time_service.h"
 #include "DS3231_RTC_driver.h"
 #include <stdint.h>
+#include "tasks.h"
 
-uint8_t time_data [3]= {0};
-uint8_t hour_data = 0;
-uint8_t mins_data = 0;
+uint8_t time_data[3] = { 0 };
+static uint8_t hour_data = 0;
+static uint8_t mins_data = 0;
 
 void spit_time() {
 	uint8_t *buff = get_RTC_Data();
@@ -26,13 +27,22 @@ void spit_time() {
 }
 
 void get_Time(uint8_t *hours, uint8_t *mins) {
-    spit_time();
-    *hours = hour_data;
-    *mins  = mins_data;
+	static uint32_t last_sensor_read = 0;
+
+	uint32_t now = xTaskGetTickCount();
+
+	if ((now - last_sensor_read) >= pdMS_TO_TICKS(1000)) {
+		last_sensor_read = now;
+
+		spit_time();
+
+	}
+	*hours = hour_data;
+	*mins = mins_data;
+
 }
 
-
-void update_time(){
+void update_time() {
 	time_data[0] = 0;
 	set_RTC_Data(time_data);
 }
@@ -43,10 +53,10 @@ void set_TimeMins(uint8_t mins) {
 
 void set_TimeH(uint8_t hours) {
 	time_data[2] = hours;
-	update_time();
+//	update_time();
 }
 
 void confirm_time() {
-    update_time();   // write both hours and mins together
+	update_time();   // write both hours and mins together
 }
 

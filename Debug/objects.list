@@ -6,6 +6,7 @@
 "./Core/Src/Drivers/DS3231_RTC_driver.o"
 "./Core/Src/Drivers/ble_driver.o"
 "./Core/Src/Drivers/gpio_driver.o"
+"./Core/Src/Services/alarm_service.o"
 "./Core/Src/Services/light_service.o"
 "./Core/Src/Services/music_service.o"
 "./Core/Src/Services/sensor_service.o"

@@ -19,7 +19,6 @@ void audio_service_prev();
 void audio_service_init();
 void audio_service_stop();
 void audio_service_volume(uint8_t current_vol);
-void audio_service_timer(uint8_t time); //
 
 void audio_service_ble_enable();
 void audio_service_ble_disable();

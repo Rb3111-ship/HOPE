@@ -8,6 +8,8 @@
 #ifndef SRC_LIGHT_H_
 #define SRC_LIGHT_H_
 
+typedef struct{
 
+}light_msg_t;
 
 #endif /* SRC_LIGHT_H_ */

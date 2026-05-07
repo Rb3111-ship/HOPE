@@ -38,9 +38,6 @@ void music_Task(void *pvParameters) {
 
 				audio_service_volume(msg.data);
 				break;
-			case EVT_TIMER:
-				audio_service_timer(msg.time);
-				break;
 			case EVT_PAUSE:
 				audio_service_pause();
 				break;

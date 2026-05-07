@@ -5,18 +5,21 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
+../Core/Src/Services/alarm_service.c \
 ../Core/Src/Services/light_service.c \
 ../Core/Src/Services/music_service.c \
 ../Core/Src/Services/sensor_service.c \
 ../Core/Src/Services/time_service.c 
 
 OBJS += \
+./Core/Src/Services/alarm_service.o \
 ./Core/Src/Services/light_service.o \
 ./Core/Src/Services/music_service.o \
 ./Core/Src/Services/sensor_service.o \
 ./Core/Src/Services/time_service.o 
 
 C_DEPS += \
+./Core/Src/Services/alarm_service.d \
 ./Core/Src/Services/light_service.d \
 ./Core/Src/Services/music_service.d \
 ./Core/Src/Services/sensor_service.d \
@@ -30,7 +33,7 @@ Core/Src/Services/%.o Core/Src/Services/%.su Core/Src/Services/%.cyclo: ../Core/
 clean: clean-Core-2f-Src-2f-Services
 
 clean-Core-2f-Src-2f-Services:
-	-$(RM) ./Core/Src/Services/light_service.cyclo ./Core/Src/Services/light_service.d ./Core/Src/Services/light_service.o ./Core/Src/Services/light_service.su ./Core/Src/Services/music_service.cyclo ./Core/Src/Services/music_service.d ./Core/Src/Services/music_service.o ./Core/Src/Services/music_service.su ./Core/Src/Services/sensor_service.cyclo ./Core/Src/Services/sensor_service.d ./Core/Src/Services/sensor_service.o ./Core/Src/Services/sensor_service.su ./Core/Src/Services/time_service.cyclo ./Core/Src/Services/time_service.d ./Core/Src/Services/time_service.o ./Core/Src/Services/time_service.su
+	-$(RM) ./Core/Src/Services/alarm_service.cyclo ./Core/Src/Services/alarm_service.d ./Core/Src/Services/alarm_service.o ./Core/Src/Services/alarm_service.su ./Core/Src/Services/light_service.cyclo ./Core/Src/Services/light_service.d ./Core/Src/Services/light_service.o ./Core/Src/Services/light_service.su ./Core/Src/Services/music_service.cyclo ./Core/Src/Services/music_service.d ./Core/Src/Services/music_service.o ./Core/Src/Services/music_service.su ./Core/Src/Services/sensor_service.cyclo ./Core/Src/Services/sensor_service.d ./Core/Src/Services/sensor_service.o ./Core/Src/Services/sensor_service.su ./Core/Src/Services/time_service.cyclo ./Core/Src/Services/time_service.d ./Core/Src/Services/time_service.o ./Core/Src/Services/time_service.su
 
 .PHONY: clean-Core-2f-Src-2f-Services
 

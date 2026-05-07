@@ -1,0 +1,17 @@
+../Core/Src/Drivers/DFPLAYER_driver.c:44:6:initQueue	4	static
+../Core/Src/Drivers/DFPLAYER_driver.c:50:6:enqueue	16	static,ignoring_inline_asm
+../Core/Src/Drivers/DFPLAYER_driver.c:67:6:df_player_init	16	static
+../Core/Src/Drivers/DFPLAYER_driver.c:76:6:play	24	static
+../Core/Src/Drivers/DFPLAYER_driver.c:84:6:source_select	16	static
+../Core/Src/Drivers/DFPLAYER_driver.c:93:6:pause	16	static
+../Core/Src/Drivers/DFPLAYER_driver.c:98:6:stop	16	static
+../Core/Src/Drivers/DFPLAYER_driver.c:103:6:resume	16	static
+../Core/Src/Drivers/DFPLAYER_driver.c:108:6:set_volume	24	static
+../Core/Src/Drivers/DFPLAYER_driver.c:121:6:change_track	24	static
+../Core/Src/Drivers/DFPLAYER_driver.c:133:6:HAL_UART_TxCpltCallback	16	static
+../Core/Src/Drivers/DFPLAYER_driver.c:140:6:is_empty	4	static
+../Core/Src/Drivers/DFPLAYER_driver.c:144:6:is_full	4	static
+../Core/Src/Drivers/DFPLAYER_driver.c:148:6:dequeue	16	static
+../Core/Src/Drivers/DFPLAYER_driver.c:160:10:df_build_packet	32	static
+../Core/Src/Drivers/DFPLAYER_driver.c:188:6:uart_tx	16	static
+../Core/Src/Drivers/DFPLAYER_driver.c:192:6:df_try_start_tx	16	static
