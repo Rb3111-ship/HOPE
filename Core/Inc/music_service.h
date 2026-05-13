@@ -30,8 +30,8 @@ bool audio_service_next();
 bool audio_service_prev();
 bool audio_service_init();
 bool audio_service_stop();
-bool audio_service_volume_up();
-bool audio_service_volume_down();
+void audio_service_volume(uint8_t current_vol);
+void audio_service_resume();
 
 bool audio_service_ble_enable();
 bool audio_service_ble_disable();

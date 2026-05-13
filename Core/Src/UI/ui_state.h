@@ -36,12 +36,13 @@ typedef enum {
 	UI_STATE_TIME_SUBMENU,
 	UI_STATE_ALARMS_LIST,
 	UI_STATE_ALARM_SETUP,
+	UI_ALARM_FIRING
 
 } ui_state_t;
 
 //Overlay
 typedef enum {
-	OVERLAY_NONE, OVERLAY_VOLUME_UP, OVERLAY_VOLUME_DOWN, OVERLAY_LIGHT_MENU, OVERLAY_TIMER, OVERLAY_ALARM_DELETE
+	OVERLAY_NONE, OVERLAY_VOLUME_UP, OVERLAY_VOLUME_DOWN, OVERLAY_LIGHT_MENU, OVERLAY_TIMER, OVERLAY_ALARM_DELETE, OVERLAY_ALARM_FIRING
 } overlay_type_t;
 
 
@@ -62,7 +63,6 @@ typedef struct {
     union {
         uint16_t value;        // For simple values
         sensor_data_t sensor;  // For sensor data
-        //add time--------------------------------------------------------------------
     } data;
 } ui_msg_t;
 

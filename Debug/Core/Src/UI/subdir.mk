@@ -6,18 +6,15 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
 ../Core/Src/UI/ui_events.c \
-../Core/Src/UI/ui_renderer.c \
-../Core/Src/UI/ui_state.c 
+../Core/Src/UI/ui_renderer.c 
 
 OBJS += \
 ./Core/Src/UI/ui_events.o \
-./Core/Src/UI/ui_renderer.o \
-./Core/Src/UI/ui_state.o 
+./Core/Src/UI/ui_renderer.o 
 
 C_DEPS += \
 ./Core/Src/UI/ui_events.d \
-./Core/Src/UI/ui_renderer.d \
-./Core/Src/UI/ui_state.d 
+./Core/Src/UI/ui_renderer.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes
@@ -27,7 +24,7 @@ Core/Src/UI/%.o Core/Src/UI/%.su Core/Src/UI/%.cyclo: ../Core/Src/UI/%.c Core/Sr
 clean: clean-Core-2f-Src-2f-UI
 
 clean-Core-2f-Src-2f-UI:
-	-$(RM) ./Core/Src/UI/ui_events.cyclo ./Core/Src/UI/ui_events.d ./Core/Src/UI/ui_events.o ./Core/Src/UI/ui_events.su ./Core/Src/UI/ui_renderer.cyclo ./Core/Src/UI/ui_renderer.d ./Core/Src/UI/ui_renderer.o ./Core/Src/UI/ui_renderer.su ./Core/Src/UI/ui_state.cyclo ./Core/Src/UI/ui_state.d ./Core/Src/UI/ui_state.o ./Core/Src/UI/ui_state.su
+	-$(RM) ./Core/Src/UI/ui_events.cyclo ./Core/Src/UI/ui_events.d ./Core/Src/UI/ui_events.o ./Core/Src/UI/ui_events.su ./Core/Src/UI/ui_renderer.cyclo ./Core/Src/UI/ui_renderer.d ./Core/Src/UI/ui_renderer.o ./Core/Src/UI/ui_renderer.su
 
 .PHONY: clean-Core-2f-Src-2f-UI
 

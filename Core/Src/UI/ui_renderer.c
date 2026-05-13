@@ -35,7 +35,7 @@ uint8_t volume = 0;
  *  LIVE DATA
  * ═══════════════════════════════════════════════════════════════ */
 
-void set_volume(uint8_t vol_input) {
+void setVolume(uint8_t vol_input) {
 	volume = vol_input;
 }
 
@@ -99,7 +99,6 @@ static int alarm_delete_choice = 1; /* 0: YES, 1: NO (Safe default) */
 static uint8_t alarm_edit_field = 0; /* 0: Hours, 1: Minutes */
 static uint8_t alarm_edit_h = 0;
 static uint8_t alarm_edit_m = 0;
-
 /* ═══════════════════════════════════════════════════════════════
  *  NAVIGATION HELPERS
  * ═══════════════════════════════════════════════════════════════ */
@@ -583,6 +582,72 @@ static void draw_vol_overlay_body(int direction) {
 	draw_vol_bar(22u, 103u, 85u, 8u, ui_data.volume);
 }
 
+
+/* Alarm bell icon (~22 wide, 20 tall, centred on cx,cy) */
+static void draw_alarm_bell(int cx, int cy, SSD1306_COLOR col) {
+    /* Dome */
+    ssd1306_DrawArc(clamp8(cx), clamp8(cy + 2), 10u, 180u, 360u, col);
+    /* Sides drop down from dome rim */
+    ssd1306_Line(clamp8(cx - 10), clamp8(cy + 2),
+                 clamp8(cx - 10), clamp8(cy + 9), col);
+    ssd1306_Line(clamp8(cx + 10), clamp8(cy + 2),
+                 clamp8(cx + 10), clamp8(cy + 9), col);
+    /* Base bar */
+    ssd1306_Line(clamp8(cx - 12), clamp8(cy + 9),
+                 clamp8(cx + 12), clamp8(cy + 9), col);
+    /* Clapper dot */
+    ssd1306_FillCircle(clamp8(cx), clamp8(cy + 13), 2u, col);
+    /* Stem + handle */
+    ssd1306_Line(clamp8(cx), clamp8(cy - 8),
+                 clamp8(cx), clamp8(cy - 12), col);
+    ssd1306_Line(clamp8(cx - 3), clamp8(cy - 12),
+                 clamp8(cx + 3), clamp8(cy - 12), col);
+}
+
+/* Returns 1 if alarm content should be drawn this tick (fade simulation) */
+static uint8_t alarm_fade_visible(void) {
+    uint8_t t = (uint8_t)(anim_tick % 60u);
+    if (t < 20u) return 1u;                         /* Fully on         */
+    if (t < 28u) return (uint8_t)(t % 2u);          /* 50% — fading out */
+    if (t < 36u) return (uint8_t)(t % 4u == 0u);    /* 25% — near off   */
+    if (t < 40u) return 0u;                          /* Fully off        */
+    if (t < 44u) return (uint8_t)(t % 4u == 0u);    /* 25% — fading in  */
+    if (t < 52u) return (uint8_t)(t % 2u);          /* 50% — fading in  */
+    return 1u;                                        /* Fully on         */
+}
+
+/* Alarm Firing Overlay: full-screen, time + bell, fades in/out */
+void UI_DrawAlarmFiringOverlay(void) {
+    char buf[8];
+
+    /* Full-screen dark box with border */
+    ssd1306_FillRectangle(0u, 0u, 127u, 127u, Black);
+    ssd1306_DrawRectangle(0u, 0u, 127u, 127u, White);
+
+    /* Header bar */
+    ssd1306_FillRectangle(0u, 0u, 127u, 16u, White);
+    draw_centered_str("  ALARM  ", Font_7x10, 7u, 3u);
+
+    if (alarm_fade_visible()) {
+        /* Large time display */
+    	snprintf(buf, sizeof(buf), "%02d:%02d",
+    	         (int)ui_data.hours, (int)ui_data.minutes);
+        ssd1306_SetCursor(14u, 30u);
+        ssd1306_WriteString(buf, Font_16x26, White);
+
+        /* Animated bell — swings left/right using anim_tick */
+        int bell_cx = 64 + (int)((anim_tick % 10u < 5u) ? 4 : -4);
+        draw_alarm_bell(bell_cx, 82, White);
+    }
+
+    /* Dismiss hint — always visible so user knows what to do */
+    ssd1306_Line(0u, 112u, 127u, 112u, White);
+    ssd1306_SetCursor(10u, 118u);
+    ssd1306_WriteString("Press OK to dismiss", Font_6x8, White);
+}
+
+
+
 /* ═══════════════════════════════════════════════════════════════
  *  SCREEN IMPLEMENTATIONS
  * ═══════════════════════════════════════════════════════════════ */
@@ -982,6 +1047,9 @@ void ui_renderer_update(ui_state_t current_state, overlay_t *current_overlay) {
 		case OVERLAY_ALARM_DELETE:
 			UI_DrawAlarmDeleteOverlay();
 			break;
+		case OVERLAY_ALARM_FIRING:
+		    UI_DrawAlarmFiringOverlay();
+		    break;
 		default:
 			// Overlay_None
 			break;

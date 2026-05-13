@@ -14,7 +14,7 @@ uint8_t time_data[3] = { 0 };
 static uint8_t hour_data = 0;
 static uint8_t mins_data = 0;
 
-void spit_time() {
+void split_time() {
 	uint8_t *buff = get_RTC_Data();
 	for (int i = 1; i < 3; i++) {
 
@@ -34,7 +34,7 @@ void get_Time(uint8_t *hours, uint8_t *mins) {
 	if ((now - last_sensor_read) >= pdMS_TO_TICKS(1000)) {
 		last_sensor_read = now;
 
-		spit_time();
+		split_time();
 
 	}
 	*hours = hour_data;
