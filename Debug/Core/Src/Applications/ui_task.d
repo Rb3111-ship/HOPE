@@ -54,7 +54,8 @@ Core/Src/Applications/ui_task.o: ../Core/Src/Applications/ui_task.c \
  D:/ST\ projects/Hope_V1/Core/Src/Drivers/DS3231_RTC_driver.h \
  D:/ST\ projects/Hope_V1/Core/Src/Services/alarm_service.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os.h \
- ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.h
+ ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.h \
+ ../Core/Src/Applications/light.h
 ../Core/Src/Applications/tasks.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h:
 ../Core/Inc/FreeRTOSConfig.h:
@@ -112,3 +113,4 @@ D:/ST\ projects/Hope_V1/Core/Src/Drivers/DS3231_RTC_driver.h:
 D:/ST\ projects/Hope_V1/Core/Src/Services/alarm_service.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.h:
+../Core/Src/Applications/light.h:

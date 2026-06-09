@@ -1,8 +1,8 @@
 /*
  * music_service.h
  *
- *  Created on: 23 Apr 2026
- *      Author: whp27
+ * Created on: 23 Apr 2026
+ * Author: whp27
  */
 
 #ifndef SRC_SERVICES_MUSIC_SERVICE_H_
@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+// Service Layer Application Programming Interface Prototypes
 void auido_service_init();
 void audio_service_play(uint16_t track);
 void audio_service_pause();

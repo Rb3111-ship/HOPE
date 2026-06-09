@@ -1,8 +1,8 @@
 /*
  * ble_driver.c
  *
- *  Created on: 4 May 2026
- *      Author: whp27
+ * Created on: 4 May 2026
+ * Author: whp27
  */
 #include "ble_driver.h"
 #include "main.h"

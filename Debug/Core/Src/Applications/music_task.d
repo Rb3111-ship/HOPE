@@ -12,7 +12,8 @@ Core/Src/Applications/music_task.o: ../Core/Src/Applications/music_task.c \
  ../Core/Src/Applications/app_queue.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/task.h \
- ../Core/Inc/music_service.h ../Core/Src/Applications/music.h
+ D:/ST\ projects/Hope_V1/Core/Src/Services/music_service.h \
+ ../Core/Src/Applications/music.h
 ../Core/Src/Applications/tasks.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h:
 ../Core/Inc/FreeRTOSConfig.h:
@@ -26,5 +27,5 @@ Core/Src/Applications/music_task.o: ../Core/Src/Applications/music_task.c \
 ../Core/Src/Applications/app_queue.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/task.h:
-../Core/Inc/music_service.h:
+D:/ST\ projects/Hope_V1/Core/Src/Services/music_service.h:
 ../Core/Src/Applications/music.h:

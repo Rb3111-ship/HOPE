@@ -8,18 +8,21 @@ C_SRCS += \
 ../Core/Src/Drivers/DFPLAYER_driver.c \
 ../Core/Src/Drivers/DHT22_driver.c \
 ../Core/Src/Drivers/DS3231_RTC_driver.c \
+../Core/Src/Drivers/WS2812_driver.c \
 ../Core/Src/Drivers/ble_driver.c 
 
 OBJS += \
 ./Core/Src/Drivers/DFPLAYER_driver.o \
 ./Core/Src/Drivers/DHT22_driver.o \
 ./Core/Src/Drivers/DS3231_RTC_driver.o \
+./Core/Src/Drivers/WS2812_driver.o \
 ./Core/Src/Drivers/ble_driver.o 
 
 C_DEPS += \
 ./Core/Src/Drivers/DFPLAYER_driver.d \
 ./Core/Src/Drivers/DHT22_driver.d \
 ./Core/Src/Drivers/DS3231_RTC_driver.d \
+./Core/Src/Drivers/WS2812_driver.d \
 ./Core/Src/Drivers/ble_driver.d 
 
 
@@ -30,7 +33,7 @@ Core/Src/Drivers/%.o Core/Src/Drivers/%.su Core/Src/Drivers/%.cyclo: ../Core/Src
 clean: clean-Core-2f-Src-2f-Drivers
 
 clean-Core-2f-Src-2f-Drivers:
-	-$(RM) ./Core/Src/Drivers/DFPLAYER_driver.cyclo ./Core/Src/Drivers/DFPLAYER_driver.d ./Core/Src/Drivers/DFPLAYER_driver.o ./Core/Src/Drivers/DFPLAYER_driver.su ./Core/Src/Drivers/DHT22_driver.cyclo ./Core/Src/Drivers/DHT22_driver.d ./Core/Src/Drivers/DHT22_driver.o ./Core/Src/Drivers/DHT22_driver.su ./Core/Src/Drivers/DS3231_RTC_driver.cyclo ./Core/Src/Drivers/DS3231_RTC_driver.d ./Core/Src/Drivers/DS3231_RTC_driver.o ./Core/Src/Drivers/DS3231_RTC_driver.su ./Core/Src/Drivers/ble_driver.cyclo ./Core/Src/Drivers/ble_driver.d ./Core/Src/Drivers/ble_driver.o ./Core/Src/Drivers/ble_driver.su
+	-$(RM) ./Core/Src/Drivers/DFPLAYER_driver.cyclo ./Core/Src/Drivers/DFPLAYER_driver.d ./Core/Src/Drivers/DFPLAYER_driver.o ./Core/Src/Drivers/DFPLAYER_driver.su ./Core/Src/Drivers/DHT22_driver.cyclo ./Core/Src/Drivers/DHT22_driver.d ./Core/Src/Drivers/DHT22_driver.o ./Core/Src/Drivers/DHT22_driver.su ./Core/Src/Drivers/DS3231_RTC_driver.cyclo ./Core/Src/Drivers/DS3231_RTC_driver.d ./Core/Src/Drivers/DS3231_RTC_driver.o ./Core/Src/Drivers/DS3231_RTC_driver.su ./Core/Src/Drivers/WS2812_driver.cyclo ./Core/Src/Drivers/WS2812_driver.d ./Core/Src/Drivers/WS2812_driver.o ./Core/Src/Drivers/WS2812_driver.su ./Core/Src/Drivers/ble_driver.cyclo ./Core/Src/Drivers/ble_driver.d ./Core/Src/Drivers/ble_driver.o ./Core/Src/Drivers/ble_driver.su
 
 .PHONY: clean-Core-2f-Src-2f-Drivers
 

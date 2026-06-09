@@ -1,8 +1,8 @@
 /*
  * music_task.c
  *
- *  Created on: 21 Apr 2026
- *      Author: whp27
+ * Created on: 21 Apr 2026
+ * Author: whp27
  */
 #include "tasks.h"
 #include "app_queue.h"
@@ -10,16 +10,20 @@
 #include "music.h"
 
 static music_msg_t msg;
-uint8_t init_flag = 0;
 
+/**
+ * @brief FreeRTOS task handling the background audio selection execution paths.
+ * @details Blocks indefinitely on musicQueueHandle until events arrive, routing commands
+ * to service layer wrappers without polling variables.
+ * @param pvParameters Unused FreeRTOS task parameters.
+ */
 void music_Task(void *pvParameters) {
+	// Initialise hardware parameters before stepping into the loop block
+	audio_service_init();
 
 	for (;;) {
+		// Thread enters blocked sleep state indefinitely until a new message arrives
 		if (xQueueReceive(musicQueueHandle, &msg, portMAX_DELAY) == pdPASS) {
-			if (init_flag != 1) {
-				audio_service_init();
-				init_flag = 1;
-			}
 
 			switch (msg.comm) {
 			case EVT_PLAY:
@@ -35,7 +39,6 @@ void music_Task(void *pvParameters) {
 				audio_service_prev();
 				break;
 			case EVT_SET_VOL:
-
 				audio_service_volume(msg.data);
 				break;
 			case EVT_PAUSE:
@@ -44,19 +47,14 @@ void music_Task(void *pvParameters) {
 			case EVT_RESUME:
 				audio_service_resume();
 				break;
-
 			case EVT_BLE_ON:
 				audio_service_ble_enable();
-
 				break;
 			case EVT_BLE_OFF:
 				audio_service_ble_disable();
 				break;
-
 			}
 		}
 
-//use event type to set timer
 	}
 }
-

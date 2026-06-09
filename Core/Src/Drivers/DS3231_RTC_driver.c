@@ -1,20 +1,29 @@
 /*
  * DS3231_RTC_driver.c
  *
- *  Created on: 28 Apr 2026
- *      Author: whp27
+ * Created on: 28 Apr 2026
+ * Author: whp27
  */
 #include "FreeRTOS.h"
 #include "stm32f4xx_hal.h"
 #include "DS3231_RTC_driver.h"
+#include <stdint.h>
+#include "semphr.h"
 
+/* Physical Hardware Address and Tracking Parameters */
 #define ADDRS 0x68
 #define START_ADDRS 0x00
+#define RTC_I2C_TIMEOUT_MS  10U
 extern I2C_HandleTypeDef hi2c1;
-#include <stdint.h>
 
-uint8_t raw_data[3];
-uint8_t processed_data[3];
+/* Dedicated global array sectors handling conversion routines locally */
+static uint8_t raw_data[3];
+static uint8_t processed_data[3];
+extern SemaphoreHandle_t i2c_mutex;
+
+/**
+ * @brief Iterates down across array properties translating traditional decimal units into structured BCD syntax blocks.
+ */
 void deciToBCD() {
 	for (int i = 0; i < 3; i++) {
 		uint8_t shift = 0;
@@ -31,6 +40,9 @@ void deciToBCD() {
 	}
 }
 
+/**
+ * @brief Iterates down across array properties untangling hardware BCD patterns back into standard decimal.
+ */
 void BCDtoDeci() {
 	for (int i = 0; i < 3; i++) {
 		uint8_t bcd = raw_data[i];
@@ -47,15 +59,27 @@ void BCDtoDeci() {
 	}
 }
 
+/**
+ * @brief Pulls raw parameters from external chip layers via blocking I2C transactions.
+ * @details Applies standard 24-hour register extraction mask adjustments before exporting.
+ * @return Static local array reference pointing to decoded values.
+ */
 uint8_t* get_RTC_Data() {
 
-	HAL_I2C_Mem_Read(&hi2c1, ADDRS << 1, START_ADDRS, I2C_MEMADD_SIZE_8BIT,
-			raw_data, 3, pdMS_TO_TICKS(10));
+	// Direct blocking read mapping indices out over the I2C physical bus
+	if (xSemaphoreTake(i2c_mutex, pdMS_TO_TICKS(50)) == pdPASS) {
+		HAL_I2C_Mem_Read(&hi2c1, ADDRS << 1, START_ADDRS, I2C_MEMADD_SIZE_8BIT,
+				raw_data, 3, RTC_I2C_TIMEOUT_MS);
+		xSemaphoreGive(i2c_mutex);
+	}
 	BCDtoDeci();
-	processed_data[2] &= 0x3F;
+	processed_data[2] &= 0x3F; // Apply bitwise mask stripping upper status elements out of hour fields
 	return processed_data;
 }
 
+/**
+ * @brief Packs decimal timing variables into BCD formats and flushes them to the physical registers.
+ */
 void set_RTC_Data(uint8_t *deci_Time) {
 
 	for (int i = 0; i < 3; i++) {
@@ -64,7 +88,5 @@ void set_RTC_Data(uint8_t *deci_Time) {
 
 	deciToBCD();
 	HAL_I2C_Mem_Write(&hi2c1, ADDRS << 1, START_ADDRS, I2C_MEMADD_SIZE_8BIT,
-			processed_data, 3, pdMS_TO_TICKS(10));
-
+			processed_data, 3, RTC_I2C_TIMEOUT_MS);
 }
-

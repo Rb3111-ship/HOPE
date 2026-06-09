@@ -1,4 +1,5 @@
-../Core/Src/Applications/ui_task.c:45:6:HAL_GPIO_EXTI_Callback	15
-../Core/Src/Applications/ui_task.c:81:6:volume	4
-../Core/Src/Applications/ui_task.c:105:6:timer_counter	9
-../Core/Src/Applications/ui_task.c:136:6:ui_Task	79
+../Core/Src/Applications/ui_task.c:50:6:HAL_GPIO_EXTI_Callback	15
+../Core/Src/Applications/ui_task.c:88:6:volume	5
+../Core/Src/Applications/ui_task.c:112:6:timer_counter	9
+../Core/Src/Applications/ui_task.c:143:6:stop_Alarm	2
+../Core/Src/Applications/ui_task.c:169:6:ui_Task	91

@@ -1,0 +1,12 @@
+../Core/Src/Services/light_service.c:29:6:light_service_init	8	static
+../Core/Src/Services/light_service.c:37:6:light_mode_reset	4	static
+../Core/Src/Services/light_service.c:44:6:light_mode_moonlight	16	static
+../Core/Src/Services/light_service.c:60:6:light_mode_starry	16	static
+../Core/Src/Services/light_service.c:77:6:light_mode_cycle	64	static
+../Core/Src/Services/light_service.c:144:6:light_mode_torch	16	static
+../Core/Src/Services/light_service.c:158:6:light_mode_alarm	16	static
+../Core/Src/Services/light_service.c:195:6:light_mode_sunrise	24	static
+../Core/Src/Services/light_service.c:263:6:light_mode_night_fade	16	static
+../Core/Src/Services/light_service.c:309:6:light_mode_breathing	16	static
+../Core/Src/Services/light_service.c:340:6:light_clear	16	static
+../Core/Src/Services/light_service.c:352:6:lightRenderer_update	16	static
