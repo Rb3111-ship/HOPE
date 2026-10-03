@@ -1,5 +1,0 @@
-../Core/Src/Applications/ui_task.c:50:6:HAL_GPIO_EXTI_Callback	32	static,ignoring_inline_asm
-../Core/Src/Applications/ui_task.c:88:6:volume	16	static
-../Core/Src/Applications/ui_task.c:112:6:timer_counter	16	static
-../Core/Src/Applications/ui_task.c:143:6:stop_Alarm	8	static
-../Core/Src/Applications/ui_task.c:169:6:ui_Task	40	static

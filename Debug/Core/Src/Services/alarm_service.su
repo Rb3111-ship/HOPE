@@ -1,6 +1,0 @@
-../Core/Src/Services/alarm_service.c:20:6:alarm_service_init	8	static
-../Core/Src/Services/alarm_service.c:31:10:seconds_since_midnight	16	static
-../Core/Src/Services/alarm_service.c:38:10:current_time	16	static
-../Core/Src/Services/alarm_service.c:49:6:UI_OnAlarmAdded_Callback	24	static
-../Core/Src/Services/alarm_service.c:67:6:UI_OnAlarmDeleted_Callback	16	static
-../Core/Src/Services/alarm_service.c:78:6:check_alarm	16	static

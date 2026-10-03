@@ -1,4 +1,0 @@
-../Core/Src/Drivers/DS3231_RTC_driver.c:27:6:deciToBCD	16	static
-../Core/Src/Drivers/DS3231_RTC_driver.c:46:6:BCDtoDeci	16	static
-../Core/Src/Drivers/DS3231_RTC_driver.c:67:10:get_RTC_Data	24	static
-../Core/Src/Drivers/DS3231_RTC_driver.c:83:6:set_RTC_Data	40	static

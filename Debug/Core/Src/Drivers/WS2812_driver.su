@@ -1,6 +1,0 @@
-../Core/Src/Drivers/WS2812_driver.c:32:8:ws2812_get_frame_buffer	4	static
-../Core/Src/Drivers/WS2812_driver.c:41:17:ws2812_next_pwm_value	32	static
-../Core/Src/Drivers/WS2812_driver.c:79:6:ws2812_fill_buffer	32	static
-../Core/Src/Drivers/WS2812_driver.c:88:6:HAL_TIM_PWM_PulseFinishedHalfCpltCallback	16	static
-../Core/Src/Drivers/WS2812_driver.c:95:6:HAL_TIM_PWM_PulseFinishedCallback	16	static
-../Core/Src/Drivers/WS2812_driver.c:102:6:ws2812_start	8	static
