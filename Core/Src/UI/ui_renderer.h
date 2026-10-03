@@ -24,8 +24,9 @@
 typedef struct {
 	uint8_t hours;           // 0-23  (from RTC)
 	uint8_t minutes;           // 0-59  (from RTC)
-	int8_t temperature;           // °C, signed (from DHT11)
-	uint8_t humidity;           // % RH  (from DHT11)
+	int8_t temperature;           // °C, signed (from DHT22)
+	uint8_t humidity;           // % RH  (from DHT22)
+	uint8_t sensor_valid;           // 0 until the DHT22 has given one good reading
 	uint8_t volume;           // 0-30  (DFPlayer Mini)
 } ui_render_data_t;
 
@@ -61,7 +62,7 @@ void ui_song_list_navigate(int8_t dir);           // +1 down / -1 up
 void ui_menu_navigate(int8_t dir);           // +1 next icon / -1 prev
 void ui_time_setup_next_field(void);           // toggle hours <-> minutes
 void ui_time_setup_adjust(int8_t dir);           // +1 / -1
-void ui_time_setup_get();           // read confirmed time
+void ui_time_setup_get(void);           // read confirmed time
 void ui_light_navigate(int8_t dir);
 void ui_timer_navigate(int8_t dir);
 int ui_get_light_mode(void);           // 0=Moonlight .. 4=Torch
@@ -73,13 +74,19 @@ void setVolume(uint8_t vol_input);
 void live_data_fill(void);
 
 // Seed the time editor with current RTC time before entering TIME_SETUP
-void ui_time_setup_seed();
+void ui_time_setup_seed(void);
 
 /* Configures the local cache string and attributes when tracking a running track */
 void ui_nowplaying_set(uint8_t index, const char *name);
 
 /* Alternates the local playback play/pause symbol state */
 void ui_nowplaying_toggle_pause(void);
+
+/* Sets the play/pause symbol explicitly (1 = playing, 0 = paused) */
+void ui_nowplaying_set_playing(uint8_t playing);
+
+/* Index (0-based) of the song currently shown on the player screen */
+uint8_t ui_nowplaying_get_index(void);
 
 /* Returns the current active list cursor configuration pointer */
 uint8_t ui_get_selected_index(void);
@@ -112,6 +119,7 @@ void ui_alarm_setup_confirm(void); /* Submits the alarm to backend */
 
 void ui_alarm_delete_navigate(int8_t dir); /* Toggles YES / NO */
 void ui_alarm_delete_confirm(void); /* Submits deletion to backend */
+void ui_alarm_delete_cancel(void); /* Closes prompt without deleting */
 
 
 #endif /* SRC_UI_UI_RENDERER_H_ */

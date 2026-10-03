@@ -26,7 +26,6 @@
 
 /* Animation parameters */
 #define ANIM_TICK_MAX   240u        /* Animation loop counter (10Hz: 240 ticks = 24s loop) */
-#define MAX_SONGS       25
 
 /* Local file state trackers */
 static const uint8_t song_count = 25;
@@ -40,7 +39,7 @@ const char *song_list[MAX_SONGS] = { "Twinkle Twinkle", /* index 0  0001 -------
 "You are my sunshine", /* index  2   0003 -----------*/
 "Piano",/* index  3 0004  ---------*/
 "Rain And Piano", /* index  4 0005  ---------*/
-"  ",/* index  5  0006*/
+"Lullaby 6",/* index  5  0006  TODO: put the real title of 0006.mp3 here */
 "Brahms Lullaby", /* index 6  0007 ---------*/
 "Rock-a-bye Baby", /* index 7  0008 */
 "Hush Little Baby", /* index   0009 8*/
@@ -72,19 +71,20 @@ void setVolume(uint8_t vol_input) {
 }
 
 /* Fetches external state to populate UI data. Call before UI updates. */
-void live_data_fill() {
+void live_data_fill(void) {
 	static uint32_t last_sensor_read = 0;
 	uint32_t now = osKernelGetTickCount();
 
 	/* Pull immediate real-time data from the RTC module */
 	get_Time(&ui_data.hours, &ui_data.minutes);
 
-	/* Throttle sensor reads to 5-second intervals to accommodate DHT11 sampling rates */
+	/* Throttle sensor reads to 5-second intervals (DHT22 needs >= 2 s between reads) */
 	if ((now - last_sensor_read) >= pdMS_TO_TICKS(5000)) {
 		last_sensor_read = now;
-		get_sensor_data(sensor_data);
-		ui_data.humidity = sensor_data[0];
-		ui_data.temperature = sensor_data[1];
+		ui_data.sensor_valid = get_sensor_data(sensor_data) ? 1u : 0u;
+		ui_data.humidity = (uint8_t) (sensor_data[0] + 0.5f);
+		ui_data.temperature = (int8_t) (sensor_data[1]
+				+ ((sensor_data[1] >= 0.0f) ? 0.5f : -0.5f));
 	}
 
 	ui_data.volume = volume;
@@ -171,14 +171,14 @@ void ui_time_setup_adjust(int8_t dir) {
 }
 
 /* Pre-load time editor with current RTC cached configuration snapshot */
-void ui_time_setup_seed() {
+void ui_time_setup_seed(void) {
 	time_h = ui_data.hours % 24u;
 	time_m = ui_data.minutes % 60u;
 	time_field = 0;
 }
 
 /* Push edited timeline modifications back up into driver tracking modules */
-void ui_time_setup_get() {
+void ui_time_setup_get(void) {
 	set_TimeMins(time_m);
 	set_TimeH(time_h);
 	confirm_time();
@@ -222,6 +222,16 @@ void ui_nowplaying_set(uint8_t index, const char *name) {
 /* Toggles tracked play state visualization attributes */
 void ui_nowplaying_toggle_pause(void) {
 	np_is_playing ^= 1u;
+}
+
+/* Sets the play/pause icon explicitly (e.g. paused after the sleep timer stops playback) */
+void ui_nowplaying_set_playing(uint8_t playing) {
+	np_is_playing = playing ? 1u : 0u;
+}
+
+/* Index (0-based) of the song shown on the player screen */
+uint8_t ui_nowplaying_get_index(void) {
+	return np_song_index;
 }
 
 /* Exposes selected list item indexing back out to external execution tasks */
@@ -326,6 +336,11 @@ void ui_alarm_delete_confirm(void) {
 		UI_OnAlarmDeleted_Callback((uint8_t) alarms_selected);
 	}
 	alarm_delete_choice = 1; /* Reset to safe choice */
+}
+
+/* Closes the delete prompt without deleting; resets the cursor to the safe NO choice */
+void ui_alarm_delete_cancel(void) {
+	alarm_delete_choice = 1;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -705,8 +720,7 @@ void UI_DrawAlarmFiringOverlay(void) {
 
 	/* Dismiss hint — always visible so user knows what to do */
 	ssd1306_Line(0u, 112u, 127u, 112u, White);
-	ssd1306_SetCursor(10u, 118u);
-	ssd1306_WriteString("Press OK to dismiss", Font_6x8, White);
+	draw_centered_str("Press any key", Font_6x8, 6u, 118u);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -724,9 +738,12 @@ void UI_DrawMainScreen(void) {
 
 	ssd1306_Line(0u, 21u, 127u, 21u, White);
 
-	/* Sensor Metrics */
-	snprintf(buf, sizeof(buf), " %dC   Hum:%d%%", (int) ui_data.temperature,
-			(int) ui_data.humidity);
+	/* Sensor Metrics ("--" until the first good DHT22 reading) */
+	if (ui_data.sensor_valid)
+		snprintf(buf, sizeof(buf), " %dC   Hum:%d%%", (int) ui_data.temperature,
+				(int) ui_data.humidity);
+	else
+		snprintf(buf, sizeof(buf), " --C   Hum:--%%");
 	ssd1306_SetCursor(2u, 24u);
 	ssd1306_WriteString(buf, Font_6x8, White);
 
@@ -870,8 +887,22 @@ void UI_DrawPlayDisplay_DF(void) {
 
 /* Now Playing View (Bluetooth Stream): Extends local layout assets while branding header fields with a wireless icon */
 void UI_DrawPlayDisplay_ble(void) {
-	UI_DrawPlayDisplay_DF();
+	/* Header bar: no SD track info here, the audio comes from the phone */
+	ssd1306_FillRectangle(0u, 0u, 127u, 12u, White);
+	draw_centered_str("BLUETOOTH", Font_6x8, 6u, 3u);
 	draw_bt_icon(115, 1, Black);
+
+	/* Large icon with a slow pulse ring so the screen doesn't look frozen */
+	draw_large_bt_icon(64, 44);
+	if ((anim_tick % 20u) < 10u)
+		ssd1306_DrawCircle(64u, 44u, 24u, White);
+
+	draw_centered_str("Speaker mode", Font_7x10, 7u, 74u);
+	draw_centered_str("Pair & play from", Font_6x8, 6u, 92u);
+	draw_centered_str("your phone", Font_6x8, 6u, 102u);
+
+	ssd1306_Line(0u, 115u, 127u, 115u, White);
+	draw_centered_str("MENU: exit", Font_6x8, 6u, 118u);
 }
 
 /* System Time Modification Tool: Direct time adjustment configuration fields accompanied by control reference mapping guide strings */
@@ -910,7 +941,7 @@ void UI_DrawTimeSetup(void) {
 	ssd1306_SetCursor(4u, 78u);
 	ssd1306_WriteString("OK       : next", Font_6x8, White);
 	ssd1306_SetCursor(4u, 89u);
-	ssd1306_WriteString("Hold OK  : confirm", Font_6x8, White);
+	ssd1306_WriteString("TIMER    : save", Font_6x8, White);
 
 	ssd1306_Line(0u, 100u, 127u, 100u, White);
 
@@ -996,7 +1027,7 @@ void UI_DrawAlarmSetup(void) {
 	ssd1306_SetCursor(4u, 95u);
 	ssd1306_WriteString("OK    : next", Font_6x8, White);
 	ssd1306_SetCursor(4u, 108u);
-	ssd1306_WriteString("HOLD  : save", Font_6x8, White);
+	ssd1306_WriteString("TIMER : save", Font_6x8, White);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1018,18 +1049,19 @@ void UI_DrawLightsOverlay(void) {
 			{ "Off", " Moonlight", " Starry Night", " Warm Breathing",
 					" Colour Cycle", " Lamp", "Sunrise", "Night Fade" };
 
-	ssd1306_FillRectangle(8u, 8u, 119u, 119u, Black);
-	ssd1306_DrawRectangle(8u, 8u, 119u, 119u, White);
+	/* Box is taller than the timer pop-up so all 8 modes fit (8 rows x 11 px = 88 px) */
+	ssd1306_FillRectangle(8u, 2u, 119u, 125u, Black);
+	ssd1306_DrawRectangle(8u, 2u, 119u, 125u, White);
 
-	ssd1306_FillRectangle(8u, 8u, 119u, 21u, White);
-	draw_centered_str("LIGHTS", Font_6x8, 6u, 12u);
-	draw_small_star(20, 15, Black);
+	ssd1306_FillRectangle(8u, 2u, 119u, 15u, White);
+	draw_centered_str("LIGHTS", Font_6x8, 6u, 6u);
+	draw_small_star(20, 9, Black);
 
-	draw_list(light_items, 8, light_selected, 0, 23u, 82u, 114u);
+	draw_list(light_items, 8, light_selected, 0, 17u, 88u, 114u);
 
-	ssd1306_Line(8u, 106u, 119u, 106u, White);
-	ssd1306_SetCursor(12u, 110u);
-	ssd1306_WriteString("OK:apply  X:close", Font_6x8, White);
+	ssd1306_Line(8u, 107u, 119u, 107u, White);
+	ssd1306_SetCursor(11u, 113u);
+	ssd1306_WriteString("LIGHT:next MENU:ok", Font_6x8, White);
 }
 
 /* Selection modal overlay tracking configuration adjustments for shutdown timer loops */
@@ -1047,7 +1079,7 @@ void UI_DrawTimerOverlay(void) {
 
 	ssd1306_Line(8u, 106u, 119u, 106u, White);
 	ssd1306_SetCursor(12u, 110u);
-	ssd1306_WriteString("OK:set    X:close", Font_6x8, White);
+	ssd1306_WriteString("TIMER:next OK:set", Font_6x8, White);
 }
 
 /* Danger confirmation modal validating deletion executions */
@@ -1114,6 +1146,12 @@ void ui_renderer_update(ui_state_t current_state, overlay_t *current_overlay) {
 		break;
 	case UI_STATE_ALARM_SETUP:
 		UI_DrawAlarmSetup();
+		break;
+	case UI_TIMER: /* timer pop-up opened from the home screen */
+		UI_DrawMainScreen();
+		break;
+	case UI_TIMER_NOWPLAYING: /* timer pop-up opened from the player */
+		UI_DrawPlayDisplay_DF();
 		break;
 	default:
 		break;

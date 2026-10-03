@@ -20,6 +20,7 @@
 static ui_state_t currentState = UI_STATE_MAIN;
 static ui_state_t previousState;
 static ui_state_t previousStateAlarm;
+static overlay_type_t previousOverlayAlarm = OVERLAY_NONE;
 static overlay_t previousOverlay;
 static overlay_t currentOverlay = { .type = OVERLAY_NONE };
 static music_msg_t music_msg;
@@ -29,12 +30,15 @@ static uint32_t lightOverlay_open_tick;
 static uint32_t volOverlay_open_tick;
 static uint32_t timer_start;
 static uint8_t play_state = 0;
-static uint8_t set_Vol = 5;
+static uint8_t song_stopped = 0; // 1 = DFPlayer was stopped (not paused): OK must restart the song
+static uint8_t set_Vol = DEFAULT_VOLUME;
 static uint8_t vol_flag = 0;
 static uint8_t timer_flag = 0;
 static uint32_t timeout_ms = 0;
 static uint32_t alarm_time = 0;
 static uint8_t lightOverlay = 0;
+static overlay_type_t lightPrevOverlay = OVERLAY_NONE; // overlay to restore when the light menu closes
+static light_mode_t user_light_mode = LIGHT_OFF; // last mode picked in the light menu
 
 #define LIGHT_OVERLAY_PERIOD_MS 5000
 #define ALARM_OVERLAY_PERIOD  60000
@@ -49,7 +53,11 @@ static uint8_t lightOverlay = 0;
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) { // called automatically by HAL when EXTI interrupt occurs
 	BaseType_t xHigherPriorityTaskWoken = pdFALSE; //GPIO_Pin used to compare with pins used for touch sensors
-	ui_msg_t msg = { 0 };
+	ui_msg_t msg = {0};
+
+	if (uiQueueHandle == NULL) {
+		return; // touch during boot, before the queues exist: ignore it
+	}
 
 	switch (GPIO_Pin) {
 	case BTN_VOL_DWN_Pin:
@@ -85,12 +93,17 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) { // called automatically by HAL 
 
 }
 
-void volume(evt_type_t msg) {
+static void volume(evt_type_t msg) {
 
 	vol_flag = 1;
 
 	volOverlay_open_tick = osKernelGetTickCount();
-	previousOverlay.type = currentOverlay.type;
+	// Remember what was under the pop-up, but never the volume pop-up itself
+	// (a second press within the timeout would otherwise make it permanent)
+	if (currentOverlay.type != OVERLAY_VOLUME_UP
+			&& currentOverlay.type != OVERLAY_VOLUME_DOWN) {
+		previousOverlay.type = currentOverlay.type;
+	}
 	if (msg == EVT_BTN_VOL_UP) {
 		currentOverlay.type = OVERLAY_VOLUME_UP;
 		if (set_Vol < 30)
@@ -109,7 +122,7 @@ void volume(evt_type_t msg) {
 	}
 }
 
-void timer_counter(uint16_t timer_minutes) {
+static void timer_counter(uint16_t timer_minutes) {
 	timer_start = osKernelGetTickCount();
 	switch (timer_minutes) {
 	case 0:
@@ -140,7 +153,13 @@ void timer_counter(uint16_t timer_minutes) {
 	}
 }
 
-void stop_Alarm() {
+static void close_light_menu(void) {
+	currentState = previousState;
+	currentOverlay.type = lightPrevOverlay;
+	lightOverlay = 0;
+}
+
+static void stop_Alarm(void) {
 
 	music_msg.comm = EVT_STOP;
 	music_msg.data = 0;
@@ -148,12 +167,19 @@ void stop_Alarm() {
 			pdMS_TO_TICKS(10)) != pdPASS) {
 
 	}
-	currentOverlay.type = OVERLAY_NONE;
+	currentOverlay.type = previousOverlayAlarm; // e.g. back to the timer pop-up if it was open
 	currentState = previousStateAlarm;
-	light_msg.mode = 0;
+	light_msg.mode = user_light_mode; // back to whatever light was on before the alarm
 	if (xQueueSend(lightQueueHandle, &light_msg,
 			pdMS_TO_TICKS(10)) != pdPASS) {
 
+	}
+	// The alarm tone replaced any lullaby, so the player shows "stopped";
+	// OK on the player starts the song again
+	if (play_state) {
+		play_state = 0;
+		song_stopped = 1;
+		ui_nowplaying_set_playing(0);
 	}
 	if (currentState == UI_STATE_NOWPLAYING_BLE) { // if the current state is ble, turn it on again
 		music_msg.comm = EVT_BLE_ON;
@@ -167,9 +193,19 @@ void stop_Alarm() {
 }
 
 void ui_Task(void *pvParameters) {
+	(void) pvParameters;
 
 	ui_msg_t msg;
 	const TickType_t xDelay100ms = pdMS_TO_TICKS(100UL);
+
+	// Display init must run here (not in main): it blocks on the I2C DMA semaphore,
+	// which needs the scheduler running.
+	ssd1306_Init();
+
+	// Restore alarms saved in the RTC module's EEPROM (needs the I2C mutex, so
+	// it can't run from main() before the scheduler starts)
+	alarm_service_load();
+	setVolume(set_Vol); // volume bar matches the real start-up volume
 
 	for (;;) {
 
@@ -191,6 +227,20 @@ void ui_Task(void *pvParameters) {
 						|| msg.evt == EVT_BTN_LIGHT || msg.evt == EVT_BTN_MENU)) {
 					stop_Alarm();
 
+				}
+
+			} else if (currentOverlay.type == OVERLAY_ALARM_DELETE) {
+				// The delete prompt is modal: keys only drive the YES/NO choice
+				if (msg.evt == EVT_BTN_NEXT) {
+					ui_alarm_delete_navigate(1);
+				} else if (msg.evt == EVT_BTN_PREV) {
+					ui_alarm_delete_navigate(-1);
+				} else if (msg.evt == EVT_BTN_PLAY) {
+					ui_alarm_delete_confirm();
+					currentOverlay.type = OVERLAY_NONE;
+				} else if (msg.evt == EVT_BTN_MENU) {
+					ui_alarm_delete_cancel();
+					currentOverlay.type = OVERLAY_NONE;
 				}
 
 			} else {
@@ -230,11 +280,6 @@ void ui_Task(void *pvParameters) {
 						switch (ui_get_menu_icon()) {
 						case 0:
 							currentState = UI_STATE_MUSIC_LIST;
-							music_msg.data = 0;
-							if (xQueueSend(musicQueueHandle, &music_msg,
-									pdMS_TO_TICKS(10)) != pdPASS) {
-
-							}
 							break;
 						case 1:
 							currentState = UI_STATE_NOWPLAYING_BLE;
@@ -255,7 +300,7 @@ void ui_Task(void *pvParameters) {
 
 				case UI_STATE_TIME_SUBMENU:
 					if (msg.evt == EVT_BTN_MENU) {
-						currentState = UI_STATE_MAIN;
+						currentState = UI_STATE_MENU;
 					}
 
 					else if (msg.evt == EVT_BTN_NEXT) {
@@ -302,13 +347,13 @@ void ui_Task(void *pvParameters) {
 					}
 
 					else if (msg.evt == EVT_BTN_PLAY) {
-						if (ui_is_selected_alarm_empty()) { //if the alarm is active 1
-							currentOverlay.type = OVERLAY_ALARM_DELETE;
-						}
-
-						else {
+						if (ui_is_selected_alarm_empty()) { // empty slot: create a new alarm
 							ui_alarm_setup_seed();
 							currentState = UI_STATE_ALARM_SETUP;
+						}
+
+						else { // active alarm: ask whether to delete it
+							currentOverlay.type = OVERLAY_ALARM_DELETE;
 						}
 					}
 
@@ -334,6 +379,7 @@ void ui_Task(void *pvParameters) {
 
 					else if (msg.evt == EVT_BTN_TIMER) {
 						ui_time_setup_get();
+						alarm_service_time_changed(); // alarms already passed at the new time won't fire
 						currentState = UI_STATE_TIME_SUBMENU;
 					}
 
@@ -396,6 +442,7 @@ void ui_Task(void *pvParameters) {
 						ui_nowplaying_set(selected_song,     // tell UI renderer
 								song_list[selected_song]);
 						play_state = 1;     // the song is playing  not paused
+						song_stopped = 0;
 						currentState = UI_STATE_NOWPLAYING_DF;
 					}
 
@@ -413,11 +460,14 @@ void ui_Task(void *pvParameters) {
 					}
 
 					else if (msg.evt == EVT_BTN_NEXT) {
-						// TODO:move NEXT song
+						// Play the exact track now shown on screen (the module's own
+						// next/prev follow SD order and could reach the alarm tone)
 						ui_nowplaying_skip(+1);
 						uint8_t selected_song = ui_get_selected_index();
-						music_msg.comm = EVT_NEXT;
+						music_msg.comm = EVT_PLAY;
 						music_msg.data = selected_song + 1;
+						play_state = 1;
+						song_stopped = 0;
 						if (xQueueSend(musicQueueHandle, &music_msg,
 								pdMS_TO_TICKS(10)) != pdPASS) {
 
@@ -428,11 +478,14 @@ void ui_Task(void *pvParameters) {
 					}
 
 					else if (msg.evt == EVT_BTN_PREV) {
-						//TODO:move PREV song
+						// Play the exact track now shown on screen (the module's own
+						// next/prev follow SD order and could reach the alarm tone)
 						ui_nowplaying_skip(-1);
 						uint8_t selected_song = ui_get_selected_index();
-						music_msg.comm = EVT_PREV;
+						music_msg.comm = EVT_PLAY;
 						music_msg.data = selected_song + 1;
+						play_state = 1;
+						song_stopped = 0;
 						if (xQueueSend(musicQueueHandle, &music_msg,
 								pdMS_TO_TICKS(10)) != pdPASS) {
 
@@ -454,8 +507,15 @@ void ui_Task(void *pvParameters) {
 							ui_nowplaying_toggle_pause();
 						} else {
 							play_state = 1;
-							music_msg.data = 0;
-							music_msg.comm = EVT_RESUME;
+							if (song_stopped) {
+								// stopped by the sleep timer / alarm: start the song again
+								music_msg.comm = EVT_PLAY;
+								music_msg.data = ui_nowplaying_get_index() + 1;
+								song_stopped = 0;
+							} else {
+								music_msg.data = 0;
+								music_msg.comm = EVT_RESUME;
+							}
 							if (xQueueSend(musicQueueHandle, &music_msg,
 									pdMS_TO_TICKS(10)) != pdPASS) {
 
@@ -499,6 +559,11 @@ void ui_Task(void *pvParameters) {
 
 						ui_timer_navigate(+1);
 
+					} else if (msg.evt == EVT_BTN_MENU) {
+						// cancel: back to the home screen without starting anything
+						currentOverlay.type = OVERLAY_NONE;
+						currentState = UI_STATE_MAIN;
+
 					} else if (msg.evt == EVT_BTN_PLAY) {
 
 						uint8_t timer_value = ui_get_timer_minutes();
@@ -512,6 +577,8 @@ void ui_Task(void *pvParameters) {
 						}
 						ui_nowplaying_set(saved_song,        // tell UI renderer
 								song_list[saved_song]);
+						play_state = 1;
+						song_stopped = 0;
 						currentState = UI_STATE_NOWPLAYING_DF;
 						currentOverlay.type = OVERLAY_NONE;
 
@@ -525,20 +592,32 @@ void ui_Task(void *pvParameters) {
 						ui_timer_navigate(+1);
 					}
 
+					else if (msg.evt == EVT_BTN_MENU) {
+						// cancel: back to the player, song keeps playing, timer unchanged
+						currentOverlay.type = OVERLAY_NONE;
+						currentState = UI_STATE_NOWPLAYING_DF;
+					}
+
 					else if (msg.evt == EVT_BTN_PLAY) {
 						//set playing song as default timer lullaby
-						saved_song = ui_get_selected_index();
+						saved_song = ui_nowplaying_get_index(); // the song actually playing
 						uint8_t timer_value = ui_get_timer_minutes();
 						timer_counter(timer_value);
 
-						music_msg.comm = EVT_PLAY;
-						music_msg.data = saved_song + 1;
-						if (xQueueSend(musicQueueHandle, &music_msg,
-								pdMS_TO_TICKS(10)) != pdPASS) {
+						// Already playing: just start the timer, don't restart the song.
+						// Paused or stopped: start it again.
+						if (!play_state || song_stopped) {
+							music_msg.comm = EVT_PLAY;
+							music_msg.data = saved_song + 1;
+							if (xQueueSend(musicQueueHandle, &music_msg,
+									pdMS_TO_TICKS(10)) != pdPASS) {
 
+							}
+							ui_nowplaying_set(saved_song,    // tell UI renderer
+									song_list[saved_song]);
+							play_state = 1;
+							song_stopped = 0;
 						}
-						ui_nowplaying_set(saved_song,        // tell UI renderer
-								song_list[saved_song]);
 						currentOverlay.type = OVERLAY_NONE;
 						currentState = UI_STATE_NOWPLAYING_DF;
 					}
@@ -555,10 +634,13 @@ void ui_Task(void *pvParameters) {
 						ui_light_navigate(1);
 						lightOverlay_open_tick = osKernelGetTickCount();
 						light_msg.mode = ui_get_light_mode();
+						user_light_mode = light_msg.mode;
 						if (xQueueSend(lightQueueHandle, &light_msg,
 								pdMS_TO_TICKS(10)) != pdPASS) {
 
 						}
+					} else if (msg.evt == EVT_BTN_MENU) {
+						close_light_menu();
 					}
 					break;
 
@@ -568,23 +650,20 @@ void ui_Task(void *pvParameters) {
 				}
 
 				if (msg.evt == EVT_BTN_LIGHT) {
-					currentOverlay.type = OVERLAY_LIGHT_MENU;
-					previousState = currentState;
-					currentState = UI_LIGHT_LIST;
+					// Only remember where we came from when first opening the menu;
+					// later presses (handled in UI_LIGHT_LIST above) just refresh the timeout.
+					if (currentState != UI_LIGHT_LIST) {
+						previousState = currentState;
+						lightPrevOverlay = currentOverlay.type;
+						if (vol_flag) { // a volume pop-up is showing: restore what was under it
+							lightPrevOverlay = previousOverlay.type;
+							vol_flag = 0;
+						}
+						currentState = UI_LIGHT_LIST;
+						currentOverlay.type = OVERLAY_LIGHT_MENU;
+					}
 					lightOverlay_open_tick = osKernelGetTickCount();
 					lightOverlay = 1;
-				}
-
-				if (currentOverlay.type == OVERLAY_ALARM_DELETE) {
-					if (msg.evt == EVT_BTN_NEXT) {
-						ui_alarm_delete_navigate(1);
-					} else if (msg.evt == EVT_BTN_PREV) {
-						ui_alarm_delete_navigate(-1);
-					} else if (msg.evt == EVT_BTN_PLAY) {
-						currentOverlay.type = OVERLAY_NONE;
-						ui_alarm_delete_confirm();
-
-					}
 				}
 			}
 		}
@@ -603,11 +682,19 @@ void ui_Task(void *pvParameters) {
 					>= pdMS_TO_TICKS(timeout_ms)) {
 				timer_flag = 0;
 
-				music_msg.comm = EVT_STOP;
-				music_msg.data = 0;
-				if (xQueueSend(musicQueueHandle, &music_msg,
-						pdMS_TO_TICKS(10)) != pdPASS) {
+				// If an alarm is ringing it has already replaced the lullaby;
+				// don't let the sleep timer cut the alarm tone off.
+				if (currentState != UI_ALARM_FIRING) {
+					music_msg.comm = EVT_STOP;
+					music_msg.data = 0;
+					if (xQueueSend(musicQueueHandle, &music_msg,
+							pdMS_TO_TICKS(10)) != pdPASS) {
 
+					}
+					// Player screen shows "paused"; pressing OK restarts the song
+					play_state = 0;
+					song_stopped = 1;
+					ui_nowplaying_set_playing(0);
 				}
 			}
 		}
@@ -615,14 +702,25 @@ void ui_Task(void *pvParameters) {
 		if (lightOverlay == 1) {
 			if ((osKernelGetTickCount() - lightOverlay_open_tick)
 					>= pdMS_TO_TICKS(LIGHT_OVERLAY_PERIOD_MS)) {
-				currentState = previousState;
-				currentOverlay.type = OVERLAY_NONE;
-				lightOverlay = 0;
+				close_light_menu();
 			}
 		}
 
-		if (check_alarm() == true) {
+		// Not polled while already ringing, so a second alarm can't overwrite
+		// previousStateAlarm with UI_ALARM_FIRING (it fires once this one stops)
+		if (currentState != UI_ALARM_FIRING && check_alarm() == true) {
+			// Close temporary pop-ups first so their timers can't later
+			// overwrite the alarm screen
+			if (lightOverlay) {
+				close_light_menu();
+			}
+			if (vol_flag) {
+				currentOverlay.type = previousOverlay.type;
+				vol_flag = 0;
+			}
+			timer_flag = 0; // the alarm replaces the lullaby; no sleep timer left to run
 			previousStateAlarm = currentState;
+			previousOverlayAlarm = currentOverlay.type;
 			alarm_time = osKernelGetTickCount();
 			if (currentState == UI_STATE_NOWPLAYING_BLE) {
 				music_msg.comm = EVT_BLE_OFF;
@@ -649,7 +747,10 @@ void ui_Task(void *pvParameters) {
 		}
 
 		live_data_fill();
-		ui_renderer_update(currentState, &currentOverlay);
+		// While the light menu is open, draw the screen it was opened from underneath it
+		ui_renderer_update(
+				(currentState == UI_LIGHT_LIST) ? previousState : currentState,
+				&currentOverlay);
 
 	}
 }
