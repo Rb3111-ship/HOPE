@@ -22,9 +22,11 @@ typedef struct {
 } SoftwareAlarm;
 
 // Service Layer Application Programming Interface Prototypes
-void alarm_service_init();
+void alarm_service_init(void);
+void alarm_service_load(void);          // restore alarms from EEPROM (call from a task)
+void alarm_service_time_changed(void);  // call after the user sets the clock
 void UI_OnAlarmDeleted_Callback(uint8_t list_index);
 void UI_OnAlarmAdded_Callback(uint8_t list_index, uint8_t alarm_edit_h,
 			uint8_t alarm_edit_m);
-bool check_alarm();
+bool check_alarm(void);
 #endif /* SRC_ALARM_SERVICE_H_ */
