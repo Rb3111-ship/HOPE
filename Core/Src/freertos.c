@@ -55,6 +55,36 @@
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
 
+/*
+ * Called by the kernel when a task overruns its stack (configCHECK_FOR_STACK_OVERFLOW = 2).
+ * Debug builds stop here so the debugger shows which task (pcTaskName);
+ * release builds reset the device so it recovers on its own.
+ */
+void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName) {
+	(void) xTask;
+	(void) pcTaskName;
+	taskDISABLE_INTERRUPTS();
+#ifdef DEBUG
+	for (;;) {
+	}
+#else
+	NVIC_SystemReset();
+#endif
+}
+
+/*
+ * Called when pvPortMalloc() fails (configUSE_MALLOC_FAILED_HOOK = 1), i.e. the
+ * FreeRTOS heap (configTOTAL_HEAP_SIZE) is exhausted.
+ */
+void vApplicationMallocFailedHook(void) {
+	taskDISABLE_INTERRUPTS();
+#ifdef DEBUG
+	for (;;) {
+	}
+#else
+	NVIC_SystemReset();
+#endif
+}
 
 
 /* USER CODE END Application */

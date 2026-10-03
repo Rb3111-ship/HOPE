@@ -102,8 +102,10 @@ BaseType_t createTasks() {
 	NULL, 2,
 	NULL);
 
+	// Music runs one level above the UI so audio commands aren't delayed by
+	// screen redraws or the ~6 ms DHT22 read in the UI task
 	BaseType_t status2 = xTaskCreate(music_Task, "music Task", 1000,
-	NULL, 2,
+	NULL, 3,
 	NULL);
 
 	BaseType_t status3 = xTaskCreate(light_Task, "light Task", 1000,
@@ -169,6 +171,10 @@ int main(void)
 
 	i2c_dma_sem = xSemaphoreCreateBinary();
 	i2c_mutex =  xSemaphoreCreateMutex();
+
+	if (i2c_dma_sem == NULL || i2c_mutex == NULL) {
+		NVIC_SystemReset();
+	}
   /* USER CODE END RTOS_SEMAPHORES */
 
   /* USER CODE BEGIN RTOS_TIMERS */
@@ -506,6 +512,55 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+static void i2c_bus_delay(void) {
+	for (volatile uint32_t i = 0; i < 500; i++) {
+		__NOP(); // a few microseconds at 100 MHz (~100 kHz bit-bang)
+	}
+}
+
+/**
+ * @brief Recovers I2C1 (OLED + DS3231) after a timeout, stuck BUSY flag or bus error.
+ * @details De-initialises the peripheral, clocks out up to 9 SCL pulses so a slave
+ *          that is holding SDA low can finish its byte, sends a STOP, then
+ *          re-initialises I2C1 (MspInit restores the pins, DMA link and IRQs).
+ *          Caller must own i2c_mutex (or be the only bus user).
+ */
+void i2c1_bus_recover(void) {
+	GPIO_InitTypeDef GPIO_InitStruct = { 0 };
+
+	HAL_I2C_DeInit(&hi2c1);
+
+	__HAL_RCC_GPIOB_CLK_ENABLE();
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6 | GPIO_PIN_7, GPIO_PIN_SET);
+	GPIO_InitStruct.Pin = GPIO_PIN_6 | GPIO_PIN_7; // PB6 = SCL, PB7 = SDA
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+	i2c_bus_delay();
+
+	for (int i = 0; i < 9; i++) {
+		if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_7) == GPIO_PIN_SET) {
+			break; // SDA released
+		}
+		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
+		i2c_bus_delay();
+		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
+		i2c_bus_delay();
+	}
+
+	// STOP condition: SDA low -> high while SCL is high
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_RESET);
+	i2c_bus_delay();
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
+	i2c_bus_delay();
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_SET);
+	i2c_bus_delay();
+
+	HAL_GPIO_DeInit(GPIOB, GPIO_PIN_6 | GPIO_PIN_7);
+	HAL_I2C_Init(&hi2c1);
+}
+
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -518,10 +573,10 @@ static void MX_GPIO_Init(void)
 void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
-	/* Infinite loop */
-	for (;;) {
-		osDelay(1);
-	}
+	/* CubeMX's default task has no job in this design (the work is in the UI,
+	 * music and light tasks). It ran at osPriorityNormal (24), above all of them,
+	 * waking every 1 ms; delete it so the idle task frees its stack/TCB. */
+	vTaskDelete(NULL);
   /* USER CODE END 5 */
 }
 
