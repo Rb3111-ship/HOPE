@@ -10,8 +10,8 @@
 *   **Zero-Latency Touch Interface:** 8-channel capacitive touch input (TTP223) routed through EXTI hardware interrupts and RTOS queues for instant, debounce-free responsiveness.
 *   **High-Speed OLED Display:** 1.5-inch 128x128 monochrome OLED. Utilizes a custom 2KB RAM framebuffer and non-blocking I2C DMA transfers (synchronized via FreeRTOS binary semaphores) to ensure 0% CPU blocking during screen updates.
 *   **Ambient LED Animations:** WS2812B LED ring driven by a dedicated Hardware Timer (PWM) and DMA, offloading all timing constraints from the CPU while rendering smooth, breathing animations.
-*   **Environmental Monitoring:** Real-time temperature and humidity tracking via DHT11, integrated using FreeRTOS software timers.
-*   **Persistent RTC:** External I2C Real-Time Clock module ensures accurate timekeeping across power cycles.
+*   **Environmental Monitoring:** Temperature and humidity from a DHT22, read every 5 s with a hardware timer input-capture driver.
+*   **Persistent RTC & Alarms:** External DS3231 I2C Real-Time Clock keeps time across power cycles; up to 10 alarms are saved in the module's AT24C32 EEPROM so they survive unplugging.
 
 ---
 
@@ -40,6 +40,25 @@ Here is the wiring for the project:
 
 ---
 
+### 💾 SD Card Layout (DFPlayer)
+
+Tracks are played **by file name** (DFPlayer command `0x12`), so the order in which files were copied doesn't matter. Format the card FAT32 and use exactly this layout:
+
+```text
+SD card root
+└── MP3/
+    ├── 0001.mp3   Twinkle Twinkle
+    ├── 0002.mp3   Amazing Grace
+    ├── ...        (one file per entry in song_list[], ui_renderer.c)
+    ├── 0025.mp3   Summertime
+    └── 0026.mp3   Alarm tone (ALARM_TONE in ui_task.c)
+```
+
+- The folder must be named `MP3` and the file names must be 4 digits (`0001`–`3000`). Most modules also accept text after the digits (e.g. `0001_twinkle.mp3`), but plain `0001.mp3` is the safest choice.
+- A lullaby loops until you stop it, change it, or the sleep timer ends. The alarm tone loops until it's dismissed (or 60 s pass).
+
+---
+
 ## 🧠 Software Architecture
 
 The HOPE system strictly adheres to a three-tier layered architecture to separate hardware constraints from business logic, ensuring modularity and easy future upgrades.
@@ -64,15 +83,18 @@ To prevent the 400kHz I2C bus from choking the 100MHz CPU during screen updates,
 
 ### 4. Directory Structure 
 ```text
-HOPE_Firmware/
+Hope_V1/
 ├── Core/
-│   ├── Application/   # FreeRTOS Tasks (ui_task.c, music_task.c)
-│   ├── Config/        # FreeRTOS and System configurations
-│   ├── Drivers/       # sh1107.c, dfplayer.c, ble_driver.c
-│   ├── Services/      # Sensor formatting, Audio abstraction
-│   ├── UI/            # State machine (ui_state.h), Renderer (ui_renderer.c)
-│   └── Src/           # Auto-generated STM32 HAL boilerplate (main.c)
-└── docs/              # Schematics, UI mockups, and datasheets
+│   ├── Inc/                  # CubeMX headers (main.h, FreeRTOSConfig.h, ...)
+│   └── Src/
+│       ├── Applications/     # FreeRTOS tasks: ui_task.c, music_task.c, light_task.c
+│       ├── Drivers/          # DFPlayer, DHT22, DS3231, AT24C32 EEPROM, WS2812, BLE power
+│       ├── Services/         # alarm, time, music, light, sensor services
+│       ├── UI/               # ui_state.h (state machine types), ui_renderer.c
+│       └── main.c, freertos.c, stm32f4xx_it.c, ...   # CubeMX-generated
+├── Drivers/OLED/             # ssd1306 library (I2C + DMA), used for the 128x128 OLED
+└── docs/                     # Schematics, UI mockups, and datasheets
+```
 
 ## 🤖 AI-Assisted Educational Workflow
 
