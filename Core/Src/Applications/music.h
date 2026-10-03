@@ -8,6 +8,10 @@
 #ifndef SRC_MUSIC_H_
 #define SRC_MUSIC_H_
 
+#include <stdint.h>
+
+#define DEFAULT_VOLUME 5   // start-up DFPlayer volume (0-30), shared by UI and music service
+
 /**
  * @brief Command enumeration flags controlling the music execution state machine.
  */
@@ -20,7 +24,8 @@ typedef enum {
 	EVT_SET_VOL,
 	EVT_PAUSE,
 	EVT_BLE_ON,
-	EVT_BLE_OFF
+	EVT_BLE_OFF,
+	EVT_TRACK_FINISHED  // posted by the DFPlayer UART RX ISR when a track ends (data = track)
 }comm_type_t;
 
 /**

@@ -16,7 +16,7 @@
 #define VERSION 0xFF
 #define START_BYTE 0x7E
 #define COMM_LENGTH 0x06
-#define PLAY 0x03
+#define PLAY_MP3_FOLDER 0x12 // play /MP3/NNNN.mp3 by file NAME (0x03 would use FAT copy order)
 #define PAUSE 0x0E
 #define STOP 0x16
 #define PREV 0x02
@@ -25,33 +25,54 @@
 #define NONE 0x00
 #define RESET 0x0C
 #define END_BYTE 0xEF
-#define FEEDBACK_BYTE 0x01
-#define REPEAT_PLAY 0x11
+#define FEEDBACK_BYTE 0x00   // no ACK replies needed; "track finished" (0x3D) is sent regardless
 #define RESUME 0x0D
 #define SELECT_DEVICE 0x09
 #define DEVICE_SD     0x02
-#define DF_RX_BUF_SIZE 64
+#define EVT_FINISHED_SD 0x3D // module -> MCU: track on the SD card finished playing
+#define FRAME_LEN 10
 
 /* Buffer Allocations and Hardware Flow Variables */
-uint8_t df_rx_buf[DF_RX_BUF_SIZE];
-volatile uint16_t df_old_pos = 0;
-volatile uint8_t uart_tx_ready = 1; // Tracks if the physical UART bus is free to transmit
-volatile uint8_t uart_rx_ready = 0;
-static uint8_t pData[10];           // Global packet generation buffer passed directly to DMA
-uint8_t playback_status = 0;        // 1 <= playback finished
-Queue q;                            // Software ring buffer instance managing packet serialization
+static volatile uint8_t uart_tx_ready = 1; // Tracks if the physical UART bus is free to transmit
+static uint8_t pData[FRAME_LEN];    // Packet buffer passed directly to DMA (only rebuilt after TX complete)
+static Queue q;                     // Software ring buffer instance managing packet serialization
 extern UART_HandleTypeDef huart1;
-uint8_t rx_buffer[10];
 
-void df_try_start_tx();
-bool is_empty();
-bool is_full();
-void source_select();
+/* Receive side: bytes arrive one at a time by interrupt and are assembled into frames */
+static uint8_t rx_byte;
+static uint8_t rx_frame[FRAME_LEN];
+static uint8_t rx_index = 0;
+static df_finished_cb_t finished_cb = NULL;
+
+static void df_try_start_tx(void);
+static bool is_empty(void);
+static bool is_full(void);
+
+/*
+ * The TX queue is touched from the music task (enqueue) and from the UART TX
+ * complete interrupt (dequeue), so every access goes through this lock. It
+ * picks the ISR-safe critical section variant when called from an interrupt.
+ */
+static inline UBaseType_t df_lock(void) {
+	if (__get_IPSR() != 0U) {
+		return taskENTER_CRITICAL_FROM_ISR();
+	}
+	taskENTER_CRITICAL();
+	return 0;
+}
+
+static inline void df_unlock(UBaseType_t saved) {
+	if (__get_IPSR() != 0U) {
+		taskEXIT_CRITICAL_FROM_ISR(saved);
+	} else {
+		taskEXIT_CRITICAL();
+	}
+}
 
 /**
  * @brief Zeroes out the internal management cursors of the software queue.
  */
-void initQueue() {
+static void initQueue(void) {
 	q.front = 0;
 	q.rear = 0;
 	q.count = 0;
@@ -59,45 +80,58 @@ void initQueue() {
 
 /**
  * @brief Places a compiled command structure into the software transmission queue.
- * @details Employs FreeRTOS critical sections to safely adjust tracking indices
- * without multi-threaded race condition corruption.
  * @param cmd The target command layout structure to buffer.
  * @return True if buffered successfully, False if the buffer is full.
  */
-bool enqueue(df_cmd_t cmd) {
+static bool enqueue(df_cmd_t cmd) {
 
+	UBaseType_t s = df_lock();
 	if (is_full()) {
+		df_unlock(s);
 		return false;
 	}
-
-	// Protect queue modifications from task switches and interrupts
-	taskENTER_CRITICAL();
 	q.tx_buf[q.rear] = cmd;
 	q.rear = (q.rear + 1) % MAX_SIZE;
 	q.count++;
-	taskEXIT_CRITICAL();
+	df_unlock(s);
 
 	// Kickoff physical transmission if the hardware bus is currently idle
 	df_try_start_tx();
 	return true;
 }
 
-void df_player_init() {
+/**
+ * @brief Arms single-byte interrupt reception for messages coming from the module.
+ */
+static void df_rx_start(void) {
+	HAL_UART_Receive_IT(&huart1, &rx_byte, 1);
+}
+
+void df_set_finished_callback(df_finished_cb_t cb) {
+	finished_cb = cb;
+}
+
+void df_player_init(void) {
 	// send 0x0C reset
 	initQueue();
+	rx_index = 0;
+	df_rx_start();
 	df_cmd_t cmd = { .cmd = RESET, .param_high = NONE, .param_low = NONE };
 	enqueue(cmd);
 }
 
-void play(uint16_t track) { //if track != 0000 you play a new track
+/**
+ * @brief Plays /MP3/NNNN.mp3 on the SD card, where NNNN is the track number (1-3000).
+ */
+void df_play(uint16_t track) {
 	uint8_t low_byte = (track & 0x00FF);
 	uint8_t high_byte = ((track & 0XFF00) >> 8);
-	df_cmd_t cmd =
-			{ .cmd = PLAY, .param_high = high_byte, .param_low = low_byte };
+	df_cmd_t cmd = { .cmd = PLAY_MP3_FOLDER, .param_high = high_byte,
+			.param_low = low_byte };
 	enqueue(cmd);
 }
 
-void source_select() {
+void df_source_select(void) {
 	uint8_t low_byte = (DEVICE_SD & 0x00FF);
 	uint8_t high_byte = ((DEVICE_SD & 0XFF00) >> 8);
 	df_cmd_t cmd = { .cmd = SELECT_DEVICE, .param_high = high_byte, .param_low =
@@ -105,22 +139,22 @@ void source_select() {
 	enqueue(cmd);
 }
 
-void pause() {
+void df_pause(void) {
 	df_cmd_t cmd = { .cmd = PAUSE, .param_high = NONE, .param_low = NONE };
 	enqueue(cmd);
 }
 
-void stop() {
+void df_stop(void) {
 	df_cmd_t cmd = { .cmd = STOP, .param_high = NONE, .param_low = NONE };
 	enqueue(cmd);
 }
 
-void resume() {
+void df_resume(void) {
 	df_cmd_t cmd = { .cmd = RESUME, .param_high = NONE, .param_low = NONE };
 	enqueue(cmd);
 }
 
-void set_volume(uint8_t vol) {
+void df_set_volume(uint8_t vol) {
 	if (vol > 30)
 		vol = 30; //df player only gets to 30
 
@@ -131,7 +165,7 @@ void set_volume(uint8_t vol) {
 	enqueue(cmd);
 }
 
-void change_track(uint8_t track) {
+void df_change_track(uint8_t track) {
 
 	uint8_t command = 0;
 	if (track == TRACK_NEXT)
@@ -154,21 +188,74 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) { //runs in ISR
 	}
 }
 
-bool is_empty() {
+/**
+ * @brief Checks a complete 10-byte frame from the module and reports "track finished".
+ */
+static void df_handle_frame(void) {
+	if (rx_frame[1] != VERSION || rx_frame[2] != COMM_LENGTH
+			|| rx_frame[9] != END_BYTE) {
+		return;
+	}
+	uint16_t sum = 0;
+	for (int i = 1; i <= 6; i++) {
+		sum += rx_frame[i];
+	}
+	uint16_t checksum = (uint16_t) ((rx_frame[7] << 8) | rx_frame[8]);
+	if ((uint16_t) (sum + checksum) != 0) {
+		return; // corrupted frame
+	}
+	if (rx_frame[3] == EVT_FINISHED_SD && finished_cb != NULL) {
+		finished_cb((uint16_t) ((rx_frame[5] << 8) | rx_frame[6]));
+	}
+}
+
+/**
+ * @brief UART Receive Complete Callback: one byte from the module (runs in ISR).
+ */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+	if (huart->Instance == USART1) {
+		if (rx_index == 0 && rx_byte != START_BYTE) {
+			// wait for the start of a frame
+		} else {
+			rx_frame[rx_index++] = rx_byte;
+			if (rx_index >= FRAME_LEN) {
+				df_handle_frame();
+				rx_index = 0;
+			}
+		}
+		df_rx_start();
+	}
+}
+
+/**
+ * @brief UART error (noise, overrun, framing): HAL stops reception, so restart it.
+ */
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
+	if (huart->Instance == USART1) {
+		rx_index = 0;
+		if (huart->gState == HAL_UART_STATE_READY) {
+			uart_tx_ready = 1; // a TX DMA error also ends up here
+			df_try_start_tx();
+		}
+		df_rx_start();
+	}
+}
+
+static bool is_empty(void) {
 	return q.count == 0;
 }
 
-bool is_full() {
+static bool is_full(void) {
 	return q.count == MAX_SIZE;
 }
 
 /**
  * @brief Extracts the oldest pending data frame from the software buffer.
- * @note This function requires protection if called from multi-threaded contexts.
+ * @note Caller must hold df_lock().
  * @param out Pointer destination to write the structure.
  * @return 1 if successfully extracted, 0 if empty.
  */
-bool dequeue(df_cmd_t *out) {
+static bool dequeue(df_cmd_t *out) {
 
 	if (is_empty()) {
 		return 0;
@@ -185,7 +272,7 @@ bool dequeue(df_cmd_t *out) {
  * @details Handles necessary two's-complement checksum algebra calculations dynamically.
  * @return Static pointer referencing the populated transmission array buffer.
  */
-uint8_t* df_build_packet(uint8_t cmd, uint8_t param_high, uint8_t param_low) {
+static uint8_t* df_build_packet(uint8_t cmd, uint8_t param_high, uint8_t param_low) {
 
 	uint16_t checksum = 0;
 	uint8_t checksum_data[6] = { VERSION, COMM_LENGTH, cmd, FEEDBACK_BYTE,
@@ -212,23 +299,28 @@ uint8_t* df_build_packet(uint8_t cmd, uint8_t param_high, uint8_t param_low) {
 	return pData;
 }
 
-void uart_tx(uint8_t *tx_buffer) {
-	HAL_UART_Transmit_DMA(&huart1, tx_buffer, 10);
+static void uart_tx(uint8_t *tx_buffer) {
+	if (HAL_UART_Transmit_DMA(&huart1, tx_buffer, FRAME_LEN) != HAL_OK) {
+		uart_tx_ready = 1; // didn't start; the command is dropped rather than wedging the queue
+	}
 }
 
 /**
- * @brief Execution engine evaluating if data processing can be initiated on the UART peripheral.
- * @details Bridges software buffers directly to background DMA channels if the hardware is idle.
+ * @brief Starts sending the next queued command if the UART is idle.
+ * @details Called from the music task (after enqueue) and from the TX complete ISR.
  */
-void df_try_start_tx() {
+static void df_try_start_tx(void) {
+	df_cmd_t cmd;
+	bool start = false;
 
-	if (uart_tx_ready && !is_empty()) {
-		uart_tx_ready = 0;
-		df_cmd_t cmd;
-		if (dequeue(&cmd)) {
-			uart_tx(df_build_packet(cmd.cmd, cmd.param_high, cmd.param_low));
-		} else {
-			uart_tx_ready = 1; // restore — no transmission started
-		}
+	UBaseType_t s = df_lock();
+	if (uart_tx_ready && dequeue(&cmd)) {
+		uart_tx_ready = 0; // claimed: nobody else can start a transfer now
+		start = true;
+	}
+	df_unlock(s);
+
+	if (start) {
+		uart_tx(df_build_packet(cmd.cmd, cmd.param_high, cmd.param_low));
 	}
 }

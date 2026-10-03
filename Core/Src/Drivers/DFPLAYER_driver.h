@@ -36,15 +36,18 @@ typedef struct {
 	uint8_t count;
 } Queue;
 
+/* Called from the UART RX interrupt when the module reports a finished track */
+typedef void (*df_finished_cb_t)(uint16_t track);
+
 // Low-Level Hardware Driver Application Programming Interface Prototypes
-void df_player_init();
-void play(uint16_t track);
-void pause();
-void set_volume(uint8_t vol);
-void change_track(uint8_t track); // if track_next go to next track else prev
-void stop();
-void resume();
-void repeat();
-void source_select();
+void df_player_init(void);
+void df_set_finished_callback(df_finished_cb_t cb);
+void df_play(uint16_t track); // plays /MP3/NNNN.mp3 on the SD card
+void df_pause(void);
+void df_set_volume(uint8_t vol);
+void df_change_track(uint8_t track); // if track_next go to next track else prev
+void df_stop(void);
+void df_resume(void);
+void df_source_select(void);
 
 #endif /* SRC_DRIVERS_DFPLAYER_DRIVER_H_ */

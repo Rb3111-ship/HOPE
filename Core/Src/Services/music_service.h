@@ -11,17 +11,16 @@
 #include <stdint.h>
 
 // Service Layer Application Programming Interface Prototypes
-void auido_service_init();
 void audio_service_play(uint16_t track);
-void audio_service_pause();
-void audio_service_resume();
-void audio_service_next();
-void audio_service_prev();
-void audio_service_init();
-void audio_service_stop();
+void audio_service_pause(void);
+void audio_service_resume(void);
+void audio_service_next(void);
+void audio_service_prev(void);
+void audio_service_init(void);
+void audio_service_stop(void);
 void audio_service_volume(uint8_t current_vol);
 
-void audio_service_ble_enable();
-void audio_service_ble_disable();
+void audio_service_ble_enable(void);
+void audio_service_ble_disable(void);
 
 #endif /* SRC_SERVICES_MUSIC_SERVICE_H_ */
