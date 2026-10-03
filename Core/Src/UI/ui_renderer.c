@@ -356,20 +356,6 @@ static inline uint8_t clamp8(int v) {
 	return (uint8_t) v;
 }
 
-/* Geometric array vectors formatting a 5-pointed star (R=8, r=4) */
-static const int8_t STAR_X[11] = { 0, 2, 8, 4, 5, 0, -5, -4, -8, -2, 0 };
-static const int8_t STAR_Y[11] = { -8, -3, -2, 1, 6, 4, 6, 1, -2, -3, -8 };
-
-/* Traces graphic coordinates to draw large decorative star symbols */
-static void draw_star(int cx, int cy, SSD1306_COLOR col) {
-	SSD1306_VERTEX pts[11];
-	for (int i = 0; i < 11; i++) {
-		pts[i].x = clamp8(cx + STAR_X[i]);
-		pts[i].y = clamp8(cy + STAR_Y[i]);
-	}
-	ssd1306_Polyline(pts, 11, col);
-}
-
 /* Geometric array vectors formatting a small star (R=4, r=2) */
 static const int8_t SSTAR_X[11] = { 0, 1, 4, 2, 2, 0, -2, -2, -4, -1, 0 };
 static const int8_t SSTAR_Y[11] = { -4, -1, -1, 1, 3, 2, 3, 1, -1, -1, -4 };
@@ -384,59 +370,104 @@ static void draw_small_star(int cx, int cy, SSD1306_COLOR col) {
 	ssd1306_Polyline(pts, 11, col);
 }
 
-/* Basic graphics rendering detailing a standard musical note structure */
-static void draw_music_note(int x, int y, SSD1306_COLOR col) {
-	if (y < 0 || y > 119 || x < 0 || x > 117)
-		return;
-	ssd1306_Line(clamp8(x + 5), clamp8(y), clamp8(x + 5), clamp8(y + 8), col);
-	ssd1306_FillCircle(clamp8(x + 3), clamp8(y + 8), 2, col);
-	ssd1306_Line(clamp8(x + 5), clamp8(y), clamp8(x + 9), clamp8(y + 3), col);
-}
+/* ───────────── Running dinosaur scene (Chrome offline-game style) ─────────────
+ * Sprites are drawn from text rows: '#' = lit pixel, anything else = skipped.
+ * Edit the rows to change the art; widths must stay the same within a sprite. */
 
-/* Animated bunny handler (frame loops through values 0-3 based on global ticker counters) */
-static void draw_bunny(int cx, int head_top_y, uint8_t frame) {
-	/* Ears */
-	ssd1306_Line(clamp8(cx - 5), clamp8(head_top_y + 10), clamp8(cx - 6),
-			clamp8(head_top_y), White);
-	ssd1306_Line(clamp8(cx - 3), clamp8(head_top_y + 10), clamp8(cx - 5),
-			clamp8(head_top_y), White);
-	ssd1306_Line(clamp8(cx + 3), clamp8(head_top_y + 10), clamp8(cx + 5),
-			clamp8(head_top_y), White);
-	ssd1306_Line(clamp8(cx + 5), clamp8(head_top_y + 10), clamp8(cx + 6),
-			clamp8(head_top_y), White);
+#define DINO_W        20
+#define DINO_BODY_H   15
+#define DINO_LEGS_H   4
+#define DINO_H        (DINO_BODY_H + DINO_LEGS_H)
 
-	/* Head */
-	int hcy = head_top_y + 14;
-	ssd1306_FillCircle(clamp8(cx), clamp8(hcy), 6, White);
-	ssd1306_DrawPixel(clamp8(cx - 2), clamp8(hcy - 1), Black);
-	ssd1306_DrawPixel(clamp8(cx + 2), clamp8(hcy - 1), Black);
-	ssd1306_DrawPixel(clamp8(cx), clamp8(hcy + 1), Black);
+static const char *const DINO_BODY[DINO_BODY_H] = {
+	"..........########..",
+	".........##.#######.",
+	".........##########.",
+	".........##########.",
+	".........##########.",
+	".........#####......",
+	".........########...",
+	"#.......#####.......",
+	"#......######.......",
+	"##....#########.....",
+	"###..##########.....",
+	"############..#.....",
+	".###########........",
+	"..#########.........",
+	"...#######..........",
+};
+static const char *const DINO_LEGS_RUN_A[DINO_LEGS_H] = { /* back leg down */
+	"....##..##..........",
+	"....##...##.........",
+	"....##..............",
+	"....###.............",
+};
+static const char *const DINO_LEGS_RUN_B[DINO_LEGS_H] = { /* front leg down */
+	"....##..##..........",
+	"...##...##..........",
+	"........##..........",
+	"........###.........",
+};
+static const char *const DINO_LEGS_JUMP[DINO_LEGS_H] = { /* both legs down */
+	"....##..##..........",
+	"....##..##..........",
+	"....##..##..........",
+	"....###.###.........",
+};
 
-	/* Body */
-	int bcy = hcy + 14;
-	ssd1306_FillCircle(clamp8(cx), clamp8(bcy), 8, White);
+#define CACTUS_W 9
+static const char *const CACTUS_SMALL[12] = {
+	"....#....",
+	"...###...",
+	"...###.#.",
+	".#.###.#.",
+	".#.###.#.",
+	".#.#####.",
+	".#.###...",
+	".#####...",
+	"...###...",
+	"...###...",
+	"...###...",
+	"...###...",
+};
+static const char *const CACTUS_TALL[16] = {
+	"....#....",
+	"...###...",
+	"...###...",
+	"...###.#.",
+	".#.###.#.",
+	".#.###.#.",
+	".#.###.#.",
+	".#.#####.",
+	".#.###...",
+	".#####...",
+	"...###...",
+	"...###...",
+	"...###...",
+	"...###...",
+	"...###...",
+	"...###...",
+};
+static const char *const CLOUD[5] = {
+	".....####.......",
+	"...##....##.....",
+	".##........###..",
+	"#.............#.",
+	"################",
+};
 
-	/* Arms - swing up on frames 2-3 */
-	int arm_dy = (frame >= 2) ? -3 : 2;
-	ssd1306_Line(clamp8(cx - 8), clamp8(bcy - 2), clamp8(cx - 14),
-			clamp8(bcy - 2 + arm_dy), White);
-	ssd1306_Line(clamp8(cx + 8), clamp8(bcy - 2), clamp8(cx + 14),
-			clamp8(bcy - 2 - arm_dy), White);
-
-	/* Legs - alternate hop */
-	int ll = ((frame == 1) || (frame == 3)) ? 3 : 0;
-	int rl = ((frame == 0) || (frame == 2)) ? 3 : 0;
-	int ly = bcy + 7;
-	ssd1306_Line(clamp8(cx - 3), clamp8(ly), clamp8(cx - 5),
-			clamp8(ly + 6 + ll), White);
-	ssd1306_Line(clamp8(cx + 3), clamp8(ly), clamp8(cx + 5),
-			clamp8(ly + 6 + rl), White);
-
-	/* Feet */
-	ssd1306_Line(clamp8(cx - 5), clamp8(ly + 6 + ll), clamp8(cx - 9),
-			clamp8(ly + 6 + ll), White);
-	ssd1306_Line(clamp8(cx + 5), clamp8(ly + 6 + rl), clamp8(cx + 9),
-			clamp8(ly + 6 + rl), White);
+/* Draws text-row sprite with its top-left corner at (x, y); off-screen pixels are skipped */
+static void draw_sprite(int x, int y, const char *const *rows, int h) {
+	for (int r = 0; r < h; r++) {
+		int py = y + r;
+		if (py < 0 || py >= (int) DISPLAY_H)
+			continue;
+		for (int c = 0; rows[r][c] != '\0'; c++) {
+			int px = x + c;
+			if (rows[r][c] == '#' && px >= 0 && px < (int) DISPLAY_W)
+				ssd1306_DrawPixel((uint8_t) px, (uint8_t) py, White);
+		}
+	}
 }
 
 /* Small Bluetooth status icon (~10x12 pixels) used in sub-header indicators */
@@ -568,49 +599,72 @@ static void draw_list(const char **items, int count, int selected, int top,
 	draw_scrollbar(list_w + 2u, list_y, list_h, count, visible, top);
 }
 
-/* Core Animation Frame Scene: Synchronizes jumping bunny mechanics, rising stars, and drifting notes */
+/* Animation scene: a T-rex runs forever along a scrolling desert floor, hopping
+ * over cacti, with clouds drifting by (like Chrome's offline dinosaur game).
+ * Everything is driven by anim_tick (one step per frame, ~10 fps, wraps at 240),
+ * and every period below divides 240 so the loop has no visible seam.
+ * Jump timing was checked pixel-by-pixel: >= 3 px clearance over every cactus. */
+#define RUN_SPEED     4   /* ground/cactus scroll, px per frame */
+#define CACTUS_PERIOD 40  /* frames between cacti */
+#define DINO_X        12  /* dino's fixed screen x */
+#define JUMP_H        20  /* jump apex height, px */
+#define JUMP_LEAD     18  /* take off when a cactus is this far ahead */
+#define JUMP_TAIL     4   /* land this far after it has passed */
+
 static void draw_anim_scene(uint8_t zone_y, uint8_t zone_h) {
-	static const int8_t hop[8] = { 0, -3, -6, -8, -6, -3, 0, 0 };
+	int ground = (int) zone_y + (int) zone_h - 6; /* y of the ground line */
 
-	/* Scale timing metrics down to stabilize visual updates across clock ticks */
-	uint8_t anim_step = (uint8_t) ((anim_tick / 6u) % 8u);
-	uint8_t draw_frm = (uint8_t) ((anim_tick / 6u) % 4u);
+	/* Clouds: drift left 1 px per frame, half a loop apart */
+	for (int k = 0; k < 2; k++) {
+		int cx = 140 - (int) ((anim_tick + (uint32_t) k * 120u) % ANIM_TICK_MAX);
+		int cy = (int) zone_y + 3 + k * 9;
+		draw_sprite(cx, cy, CLOUD, 5);
+	}
 
-	int bunny_cx = 30;
-	int bunny_ground = (int) zone_y + (int) zone_h - 38;
-	int bunny_top_y = bunny_ground + hop[anim_step];
-	draw_bunny(bunny_cx, bunny_top_y, draw_frm);
-
-	/* Baseline separator track floor asset */
-	ssd1306_Line(4u, zone_y + zone_h - 2u, 123u, zone_y + zone_h - 2u, White);
-
-	/* Render Floating background starry sky vectors */
+	/* Ground line with scrolling pebbles and dashes underneath */
+	ssd1306_Line(0u, (uint8_t) ground, (uint8_t) (DISPLAY_W - 1u), (uint8_t) ground, White);
 	{
-		static const int sx[3] = { 72, 92, 112 };
-		static const uint8_t periods[3] = { 26u, 32u, 22u };
-		for (int s = 0; s < 3; s++) {
-			uint8_t period = periods[s];
-			uint32_t phase = (uint32_t) (s * (ANIM_TICK_MAX / 3));
-			uint8_t t = (uint8_t) ((anim_tick + phase) % period);
-			int sy = ((int) zone_y + (int) zone_h - 8)
-					- (int) ((uint32_t) t * zone_h / period);
-			if (sy >= (int) zone_y && sy < (int) (zone_y + zone_h)) {
-				if (s == 0)
-					draw_star(sx[s], sy, White);
-				else
-					draw_small_star(sx[s], sy, White);
-			}
+		int offset = (int) ((anim_tick * RUN_SPEED) % 32u);
+		for (int x0 = -offset; x0 < (int) DISPLAY_W; x0 += 32) {
+			if (x0 + 3 >= 0 && x0 + 3 < (int) DISPLAY_W)
+				ssd1306_DrawPixel((uint8_t) (x0 + 3), (uint8_t) (ground + 2), White);
+			for (int x = x0 + 10; x <= x0 + 12; x++)
+				if (x >= 0 && x < (int) DISPLAY_W)
+					ssd1306_DrawPixel((uint8_t) x, (uint8_t) (ground + 3), White);
+			if (x0 + 19 >= 0 && x0 + 19 < (int) DISPLAY_W)
+				ssd1306_DrawPixel((uint8_t) (x0 + 19), (uint8_t) (ground + 2), White);
+			for (int x = x0 + 25; x <= x0 + 26; x++)
+				if (x >= 0 && x < (int) DISPLAY_W)
+					ssd1306_DrawPixel((uint8_t) x, (uint8_t) (ground + 4), White);
 		}
 	}
 
-	/* Render Floating music note element ascending through screen height constraints */
-	{
-		uint8_t t = (uint8_t) (anim_tick % 38u);
-		int ny = ((int) zone_y + (int) zone_h - 12)
-				- (int) ((uint32_t) t * zone_h / 38u);
-		if (ny >= (int) zone_y)
-			draw_music_note(52, ny, White);
+	/* Obstacle for this cycle: small cactus, tall cactus, or a pair of small ones */
+	int variant = (int) ((anim_tick / CACTUS_PERIOD) % 3u);
+	int ox = 132 - (int) (anim_tick % CACTUS_PERIOD) * RUN_SPEED;
+	int obstacle_w = (variant == 2) ? (12 + CACTUS_W) : CACTUS_W;
+	if (variant == 1) {
+		draw_sprite(ox, ground - 15, CACTUS_TALL, 16);
+	} else {
+		draw_sprite(ox, ground - 11, CACTUS_SMALL, 12);
+		if (variant == 2)
+			draw_sprite(ox + 12, ground - 11, CACTUS_SMALL, 12);
 	}
+
+	/* Jump: a parabola that starts JUMP_LEAD px before the obstacle reaches the
+	 * dino and ends JUMP_TAIL px after it has fully passed */
+	int span = JUMP_LEAD + obstacle_w + JUMP_TAIL;
+	int d = (DINO_X + JUMP_LEAD) - ox;
+	int lift = 0;
+	if (d >= 0 && d <= span)
+		lift = (4 * JUMP_H * d * (span - d)) / (span * span);
+
+	/* Dino: running legs alternate every frame; legs straight while airborne */
+	int top = ground - (DINO_H - 1) - lift;
+	draw_sprite(DINO_X, top, DINO_BODY, DINO_BODY_H);
+	const char *const *legs = (lift > 0) ? DINO_LEGS_JUMP
+			: ((anim_tick & 1u) ? DINO_LEGS_RUN_A : DINO_LEGS_RUN_B);
+	draw_sprite(DINO_X, top + DINO_BODY_H, legs, DINO_LEGS_H);
 }
 
 /* Base Volume Control Dialog Overlay frame configuration properties */
