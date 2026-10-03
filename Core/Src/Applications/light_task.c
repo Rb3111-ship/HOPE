@@ -18,6 +18,7 @@
  * @param pvParameters Unused FreeRTOS task parameters.
  */
 void light_Task(void *pvParameters) {
+	(void) pvParameters;
 	light_msg_t msg;
 
 	// Initialize the lighting hardware driver and framework structures

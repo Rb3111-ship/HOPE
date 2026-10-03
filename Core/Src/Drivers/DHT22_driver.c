@@ -25,7 +25,7 @@ uint8_t bit_index = 0;
  * @brief Deploys bare-metal register assignments configuring hardware peripherals.
  * @details Configures PB8 to standard push-pull arrangements and prepares Timer 4 input capture configurations.
  */
-void DHT22_init() {
+void DHT22_init(void) {
 	// Enable peripheral system clock distribution channels
 	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOBEN;
 	RCC->APB1ENR |= RCC_APB1ENR_TIM4EN;
@@ -34,8 +34,10 @@ void DHT22_init() {
 	GPIOB->MODER &= ~(3 << (8 * 2));
 	GPIOB->MODER |= (1 << (8 * 2));
 
-	// Push-pull configuration
-	GPIOB->OTYPER &= ~(1 << 8);
+	// Open-drain: the MCU only ever pulls the line low; the module's pull-up
+	// resistor takes it high, so the MCU never fights the sensor
+	GPIOB->OTYPER |= (1 << 8);
+	GPIOB->BSRR = (1 << 8); // released (idle high) until the first read
 
 	// High speed setting
 	GPIOB->OSPEEDR |= (3 << (8 * 2));
@@ -58,14 +60,17 @@ void DHT22_init() {
 	// Enable timer peripheral
 	TIM4->CR1 |= TIM_CR1_CEN;
 
-	// NVIC routing enablement
+	// NVIC routing enablement. Priority 0 (highest) on purpose: edge timing must not
+	// be delayed, and this ISR makes no FreeRTOS calls so it may sit above
+	// configMAX_SYSCALL_INTERRUPT_PRIORITY.
+	NVIC_SetPriority(TIM4_IRQn, 0);
 	NVIC_EnableIRQ(TIM4_IRQn);
 }
 
 /**
  * @brief Dynamic register shifting flipping PB8 pin functions onto alternative Input Capture routing paths.
  */
-void set_pin_input() {
+void set_pin_input(void) {
 	// PB8 → Alternate Function (10)
 	GPIOB->MODER &= ~(3 << (8 * 2));
 	GPIOB->MODER |= (2 << (8 * 2));
@@ -88,17 +93,24 @@ void delay_us(uint32_t us) {
  * @brief Drives initial wake start signals down physical signal lines to trigger sensor transmissions.
  * @details Pulls line down for 2ms, handles brief high state floats, transitions pin mappings, and clear tracking contexts.
  */
-void set_pin_output_low() {
+void set_pin_output_low(void) {
 
-	// PB8 already output
-	GPIOB->BSRR = (1 << (8 + 16)); // LOW driving pulse
-	delay_us(2000);                // ~2 ms hold duration
+	TIM4->DIER &= ~TIM_DIER_CC3IE; // no captures while we drive the line
 
-	GPIOB->BSRR = (1 << 8);        // HIGH float release
-	delay_us(30);                  // 20–40 µs stable relaxation period
+	// The previous read left PB8 in AF (capture) mode, so switch it back to an
+	// open-drain output every time. Set the output latch low first so the pin
+	// starts driving low the moment it becomes an output.
+	GPIOB->BSRR = (1 << (8 + 16));
+	GPIOB->OTYPER |= (1 << 8);
+	GPIOB->MODER &= ~(3 << (8 * 2));
+	GPIOB->MODER |= (1 << (8 * 2));
+	delay_us(2000);                // ~2 ms start pulse (DHT22 needs >= 1 ms)
 
-	set_pin_input();
-	// reset internal timer indices + machine execution flags
+	// Release the line and start capturing immediately. The sensor answers
+	// 20-40 us after release, so any delay here risks missing its first edge.
+	// The critical section stops a task switch splitting these steps (TIM4
+	// runs at priority 0, so its ISR is not masked by it).
+	taskENTER_CRITICAL();
 	current_state = WAIT_RESPONSE_LOW;
 	for (uint8_t i = 0; i < 5; i++) {
 		data_buff[i] = 0;
@@ -106,11 +118,10 @@ void set_pin_output_low() {
 	byte_index = 0;
 	bit_index = 0;
 	capture_prev = 0;
-
-	// Enable capture interrupt channels
+	TIM4->SR &= ~TIM_SR_CC3IF;
 	TIM4->DIER |= TIM_DIER_CC3IE;
-
-	TIM4->CNT = 0;
+	set_pin_input();               // releases the line: the pull-up takes it high
+	taskEXIT_CRITICAL();
 }
 
 /**
@@ -142,7 +153,7 @@ void TIM4_IRQHandler(void) {
 			if (current_state == WAIT_RESPONSE_LOW) //For initial falling edge verification checks
 				current_state = WAIT_RESPONSE_HIGH;
 
-			if (current_state == WAIT_BIT_FALL) {
+			else if (current_state == WAIT_BIT_FALL) {
 				capture_now = TIM4->CCR3;
 				delta = capture_now - capture_prev; // Unsigned math inherently manages counter overflow wrap errors
 				bit = (delta > 50) ? 1 : 0; // High durations > 50 microseconds represent logical 1s

@@ -15,7 +15,7 @@
 #include <stdlib.h>
 //#include "time_service.h"
 
-#define NUM_LEDS 16
+#define NUM_LEDS WS2812_NUM_LEDS
 
 //led_t leds[NUM_LEDS];
 static led_t *leds = NULL; // Destination buffer link pointing directly to hardware driver arrays
@@ -26,7 +26,7 @@ static uint8_t reset = 0;  // Synchronised mode parameter reset tracking latch
 /**
  * @brief Pre-loads framework bindings mapping service components onto hardware contexts.
  */
-void light_service_init() {
+void light_service_init(void) {
 	ws2812_start();                  // Direct initialisation call starting physical timer channels
 	leds = ws2812_get_frame_buffer(); // Bind target reference tracking pointer onto driver data structures
 }
@@ -34,14 +34,14 @@ void light_service_init() {
 /**
  * @brief Signals a mode switch execution event to synchronise local step parameters.
  */
-void light_mode_reset() {
+void light_mode_reset(void) {
 	reset = 1;
 }
 
 /**
  * @brief Renders a low intensity static white/amber baseline combination.
  */
-void light_mode_moonlight() {
+void light_mode_moonlight(void) {
 	/*
 	 * Very dim cool/warm mixed light.
 	 * Intended to be calm and barely visible.
@@ -57,7 +57,7 @@ void light_mode_moonlight() {
 /**
  * @brief Emulates a random glimmer effect using statistical scaling sweeps.
  */
-void light_mode_starry() {
+void light_mode_starry(void) {
 	for (int i = 0; i < NUM_LEDS; i++) {
 		if (rand() % 100 < 5) {
 			leds[i].r = 20;
@@ -74,7 +74,7 @@ void light_mode_starry() {
 /**
  * @brief Transitions full array parameters uniformly using mathematical HSV mappings.
  */
-void light_mode_cycle() {
+void light_mode_cycle(void) {
 
 	/*
 	 * Smoothly cycles through colors using HSV hue rotation.
@@ -141,7 +141,7 @@ void light_mode_cycle() {
 /**
  * @brief Deploys maximum hardware intensity assignments tracking constant white parameters.
  */
-void light_mode_torch() {
+void light_mode_torch(void) {
 
 	for (int i = 0; i < NUM_LEDS; i++) {
 		leds[i].r = 255;
@@ -155,7 +155,7 @@ void light_mode_torch() {
 /**
  * @brief Renders a non-aggressive soft pulsing red warning tracking custom state time lines.
  */
-void light_mode_alarm() {
+void light_mode_alarm(void) {
 	/*
 	 * Gentle pulsing alarm.
 	 *
@@ -192,7 +192,7 @@ void light_mode_alarm() {
 /**
  * @brief Multi-phase progressive sunrise cycle transitions from deep red to bright white.
  */
-void light_mode_sunrise() {
+void light_mode_sunrise(void) {
 	/*
 	 * Simulates sunrise:
 	 *
@@ -260,7 +260,7 @@ void light_mode_sunrise() {
 /**
  * @brief Slowly steps structural illumination values down to zero over elapsed time.
  */
-void light_mode_night_fade() {
+void light_mode_night_fade(void) {
 
 	/*
 	 * Starts moderately bright
@@ -306,7 +306,7 @@ void light_mode_night_fade() {
 /**
  * @brief Regular sin-style brightness modification routines tracking single baseline colors.
  */
-void light_mode_breathing() {
+void light_mode_breathing(void) {
 
 	static int brightness = 0;
 	static int dir = 1;
@@ -337,7 +337,7 @@ void light_mode_breathing() {
 /**
  * @brief Forces zero value assignments across all array indices to turn the LED array completely off.
  */
-void light_clear() {
+void light_clear(void) {
 	for (int i = 0; i < NUM_LEDS; i++) {
 		leds[i].r = 0;
 		leds[i].g = 0;

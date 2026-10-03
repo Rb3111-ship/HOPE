@@ -1,7 +1,7 @@
 /*
  * sensor_service.c
  *
- * Used to run a software timer to fetch humidity and temperature data from the dht11
+ * Fetches humidity and temperature from the DHT22 (called every 5 s by the UI renderer)
  *
  * Created on: 21 Apr 2026
  * Author: whp27
@@ -13,6 +13,11 @@
 // Global tracking references evaluating error and raw parameters
 dht22_status_t sensor_status;
 
+/* Last successful reading, reused when a read fails so the screen doesn't flash 0 */
+static float last_humidity = 0.0f;
+static float last_temperature = 0.0f;
+static bool have_reading = false;
+
 //Byte 0: Humidity high
 //Byte 1: Humidity low
 //Byte 2: Temperature high
@@ -22,19 +27,21 @@ dht22_status_t sensor_status;
  * @brief Coordinates low-level driver stream collection and scales metrics to floating points.
  * @details Decodes raw composite bytes, evaluates signed sign-bit shifts, and outputs conversions.
  * @param sensor_data Array destination where indexes 0 (Hum) and 1 (Temp) are saved.
+ * @return true if sensor_data holds a real reading (this one or the last good one),
+ *         false if the sensor has never been read successfully.
  */
-void get_sensor_data(float *sensor_data)
+bool get_sensor_data(float *sensor_data)
 {
     uint8_t raw[5];
 
     // Read the un-marshaled byte array directly from physical lines
     sensor_status = dht22_read(raw);
 
-    // Fall back to safe baseline definitions if line errors interrupt processing
+    // On a failed read keep showing the last good values
     if (sensor_status != OK) {
-        sensor_data[0] = 0.0f;
-        sensor_data[1] = 0.0f;
-        return;
+        sensor_data[0] = last_humidity;
+        sensor_data[1] = last_temperature;
+        return have_reading;
     }
 
     // Assemble individual byte fields into 16-bit parameters
@@ -53,6 +60,10 @@ void get_sensor_data(float *sensor_data)
     }
 
     // Export conversion elements to output structures
+    last_humidity = humidity;
+    last_temperature = temperature;
+    have_reading = true;
     sensor_data[0] = humidity;
     sensor_data[1] = temperature;
+    return true;
 }

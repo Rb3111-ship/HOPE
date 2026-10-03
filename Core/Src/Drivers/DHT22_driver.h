@@ -30,6 +30,6 @@ typedef enum{
 }pulse_state_t;
 
 // Low-Level Hardware Driver Application Programming Interface Prototypes
-void DHT22_init();
+void DHT22_init(void);
 dht22_status_t dht22_read(uint8_t *out);
 #endif /* SRC_DRIVERS_DHT22_DRIVER_H_ */

@@ -10,6 +10,8 @@
 
 #include <stdint.h>
 
+#define WS2812_NUM_LEDS 16   // LEDs in the ring
+
 /**
  * @brief Compound configuration structure outlining individual discrete primary color parameters.
  */

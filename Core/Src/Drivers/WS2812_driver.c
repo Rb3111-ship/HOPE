@@ -9,10 +9,13 @@
 #include "main.h"
 
 /* Framework Layout and Dimensional Constraints */
-#define NUM_LEDS 16
-#define DMA_BUFFER_SIZE 464  // 24 bits * 16 LEDs = 384 + 80 trailing reset padding slots
+#define NUM_LEDS WS2812_NUM_LEDS
 #define WS2812_PERIOD 125
 #define TOTAL_BITS (NUM_LEDS * 24)
+/* 384 data slots + 256 low "reset" slots = 320 us of reset. Newer WS2812B parts
+ * need >= 280 us (older ones 50 us). Must stay even so both DMA halves match. */
+#define RESET_SLOTS 256
+#define DMA_BUFFER_SIZE (TOTAL_BITS + RESET_SLOTS)
 #define HALF_SIZE (DMA_BUFFER_SIZE / 2)
 
 /* Peripheral Capture Compare Values mapping logical bit timing constraints */
@@ -86,6 +89,8 @@ void ws2812_fill_buffer(uint16_t *buf, uint32_t length) {
  * @brief Half-Complete Interrupt Callback handler triggered via DMA peripheral channels.
  */
 void HAL_TIM_PWM_PulseFinishedHalfCpltCallback(TIM_HandleTypeDef *htim) {
+	if (htim->Instance != TIM1)
+		return;
 	ws2812_fill_buffer(&dmaBuffer[0], HALF_SIZE); // Safe to modify initial lower sectors
 }
 
@@ -93,6 +98,8 @@ void HAL_TIM_PWM_PulseFinishedHalfCpltCallback(TIM_HandleTypeDef *htim) {
  * @brief Transfer-Complete Interrupt Callback handler triggered via DMA peripheral channels.
  */
 void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim) {
+	if (htim->Instance != TIM1)
+		return;
 	ws2812_fill_buffer(&dmaBuffer[HALF_SIZE], HALF_SIZE); // Safe to modify remaining upper sectors
 }
 
