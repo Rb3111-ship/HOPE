@@ -4,26 +4,75 @@
 #include <string.h>  // For memcpy
 #include "FreeRTOS.h"
 #include "semphr.h"
+#include "task.h"
+
+#include "main.h"     // i2c1_bus_recover()
 
 extern SemaphoreHandle_t i2c_dma_sem;
+extern SemaphoreHandle_t i2c_mutex;   // shared with the DS3231 driver (same I2C1 bus)
 
 #if defined(SSD1306_USE_I2C)
+
+#define SSD1306_CMD_TIMEOUT_MS   20U  // one command byte takes ~50 us at 400 kHz
+#define SSD1306_DMA_TIMEOUT_MS   50U  // one 128-byte page takes ~3 ms at 400 kHz
+#define SSD1306_MUTEX_TIMEOUT_MS 50U
+
+/* Set when a transfer fails; ssd1306_UpdateScreen() abandons the frame early
+ * instead of retrying all 16 pages against a dead or disconnected display. */
+static volatile uint8_t ssd1306_bus_error = 0;
 
 void ssd1306_Reset(void) {
 	/* for I2C - do nothing */
 }
 
+/* Recovers the bus unless the failure was a plain NACK (display absent or not
+ * answering), where a reset would not help and would only waste time. */
+static void ssd1306_handle_error(HAL_StatusTypeDef status) {
+	ssd1306_bus_error = 1;
+	if (!(status == HAL_ERROR
+			&& HAL_I2C_GetError(&SSD1306_I2C_PORT) == HAL_I2C_ERROR_AF)) {
+		i2c1_bus_recover();
+	}
+}
+
 // Send a byte to the command register
 void ssd1306_WriteCommand(uint8_t byte) {
-	HAL_I2C_Mem_Write(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x00, 1, &byte, 1,
-			HAL_MAX_DELAY);
+	if (xSemaphoreTake(i2c_mutex, pdMS_TO_TICKS(SSD1306_MUTEX_TIMEOUT_MS)) != pdPASS) {
+		ssd1306_bus_error = 1;
+		return;
+	}
+	HAL_StatusTypeDef status = HAL_I2C_Mem_Write(&SSD1306_I2C_PORT,
+			SSD1306_I2C_ADDR, 0x00, 1, &byte, 1, SSD1306_CMD_TIMEOUT_MS);
+	if (status != HAL_OK) {
+		ssd1306_handle_error(status);
+	}
+	xSemaphoreGive(i2c_mutex);
 }
 
 // Send data
 void ssd1306_WriteData(uint8_t *buffer, size_t buff_size) {
-	HAL_I2C_Mem_Write_DMA(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x40, 1, buffer,
-			buff_size);
-	xSemaphoreTake(i2c_dma_sem, portMAX_DELAY);
+	if (xSemaphoreTake(i2c_mutex, pdMS_TO_TICKS(SSD1306_MUTEX_TIMEOUT_MS)) != pdPASS) {
+		ssd1306_bus_error = 1;
+		return;
+	}
+
+	// Drop any stale completion left over from an earlier transfer that timed out
+	xSemaphoreTake(i2c_dma_sem, 0);
+
+	HAL_StatusTypeDef status = HAL_I2C_Mem_Write_DMA(&SSD1306_I2C_PORT,
+			SSD1306_I2C_ADDR, 0x40, 1, buffer, buff_size);
+	if (status != HAL_OK) {
+		// Transfer never started: waiting on the semaphore would block forever
+		ssd1306_handle_error(status);
+	} else if (xSemaphoreTake(i2c_dma_sem,
+			pdMS_TO_TICKS(SSD1306_DMA_TIMEOUT_MS)) != pdPASS) {
+		ssd1306_bus_error = 1;          // no completion: bus stuck mid-transfer
+		i2c1_bus_recover();
+	} else if (HAL_I2C_GetError(&SSD1306_I2C_PORT) != HAL_I2C_ERROR_NONE) {
+		ssd1306_handle_error(HAL_ERROR); // woken by HAL_I2C_ErrorCallback
+	}
+
+	xSemaphoreGive(i2c_mutex);
 }
 
 void HAL_I2C_MemTxCpltCallback(I2C_HandleTypeDef *hi2c) {
@@ -31,6 +80,16 @@ void HAL_I2C_MemTxCpltCallback(I2C_HandleTypeDef *hi2c) {
 		BaseType_t xHigherPriorityTaskWoken;
 		xHigherPriorityTaskWoken = pdFALSE;
 
+		xSemaphoreGiveFromISR(i2c_dma_sem, &xHigherPriorityTaskWoken);
+		portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+	}
+}
+
+/* Called by HAL on NACK / bus error / arbitration loss during a DMA transfer.
+ * Wakes the waiting task so it can see the error instead of hanging. */
+void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c) {
+	if (hi2c->Instance == I2C1) {
+		BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 		xSemaphoreGiveFromISR(i2c_dma_sem, &xHigherPriorityTaskWoken);
 		portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 	}
@@ -90,9 +149,64 @@ void ssd1306_Init(void) {
 	// Reset OLED
 	ssd1306_Reset();
 
-	// Wait for the screen to boot
-	HAL_Delay(100);
+	// Wait for the screen to boot (called from a task, so yield instead of busy-waiting)
+	vTaskDelay(pdMS_TO_TICKS(100));
 
+#if defined(SSD1306_USE_SH1107)
+	/*
+	 * SH1107 (128x128) init. The SSD1306 sequence below is NOT valid for this
+	 * controller: SH1107 has no 0x8D charge pump, 0xDA COM-pins or 0x40 start
+	 * line commands, and its DC-DC converter is set with 0xAD. This follows the
+	 * sequence used by Adafruit's SH1107 driver for 128x128 panels.
+	 * Data layout (16 pages x 128 columns, 1 byte = 8 vertical pixels) is the
+	 * same as SSD1306, so ssd1306_UpdateScreen() works unchanged.
+	 */
+	ssd1306_SetDisplayOn(0);              // 0xAE display off
+
+	ssd1306_WriteCommand(0xD5);           // display clock divide / oscillator
+	ssd1306_WriteCommand(0x51);
+	ssd1306_WriteCommand(0x20);           // page addressing mode (single-byte cmd on SH1107)
+
+	ssd1306_SetContrast(SSD1306_CONTRAST);
+
+	ssd1306_WriteCommand(0xAD);           // DC-DC control
+	ssd1306_WriteCommand(SH1107_DCDC_SETTING);
+
+#ifdef SSD1306_MIRROR_HORIZ
+	ssd1306_WriteCommand(0xA0);           // segment remap: mirrored
+#else
+	ssd1306_WriteCommand(0xA1);           // segment remap: normal for this build
+#endif
+#ifdef SSD1306_MIRROR_VERT
+	ssd1306_WriteCommand(0xC0);           // COM scan: mirrored
+#else
+	ssd1306_WriteCommand(0xC8);           // COM scan: normal for this build
+#endif
+
+	ssd1306_WriteCommand(0xDC);           // display start line
+	ssd1306_WriteCommand(0x00);
+	ssd1306_WriteCommand(0xD3);           // display offset
+	ssd1306_WriteCommand(SH1107_DISPLAY_OFFSET);
+	ssd1306_WriteCommand(0xD9);           // pre-charge / dis-charge period
+	ssd1306_WriteCommand(0x22);
+	ssd1306_WriteCommand(0xDB);           // VCOM deselect level
+	ssd1306_WriteCommand(0x35);
+	ssd1306_WriteCommand(0xA8);           // multiplex ratio
+	ssd1306_WriteCommand(SSD1306_HEIGHT - 1);  // 0x7F = 128 rows
+	ssd1306_WriteCommand(0xA4);           // output follows RAM
+#ifdef SSD1306_INVERSE_COLOR
+	ssd1306_WriteCommand(0xA7);
+#else
+	ssd1306_WriteCommand(0xA6);           // normal (not inverted)
+#endif
+
+	// Clear the panel RAM before switching on, so no random pixels flash up
+	ssd1306_Fill(Black);
+	ssd1306_UpdateScreen();
+	vTaskDelay(pdMS_TO_TICKS(100));       // let the DC-DC settle
+	ssd1306_SetDisplayOn(1);              // 0xAF display on
+
+#else /* SSD1306 / SH1106 sequence (original library) */
 	// Init OLED
 	ssd1306_SetDisplayOn(0); //display off
 
@@ -113,7 +227,7 @@ void ssd1306_Init(void) {
 
 	ssd1306_WriteCommand(0x40); //--set start line address - CHECK
 
-	ssd1306_SetContrast(0xFF);
+	ssd1306_SetContrast(SSD1306_CONTRAST);
 
 #ifdef SSD1306_MIRROR_HORIZ
     ssd1306_WriteCommand(0xA0); // Mirror horizontally
@@ -179,6 +293,7 @@ void ssd1306_Init(void) {
 
 	// Flush buffer to screen
 	ssd1306_UpdateScreen();
+#endif /* SSD1306_USE_SH1107 */
 
 	// Set default values for screen object
 	SSD1306.CurrentX = 0;
@@ -201,11 +316,19 @@ void ssd1306_UpdateScreen(void) {
 	//  * 32px   ==  4 pages
 	//  * 64px   ==  8 pages
 	//  * 128px  ==  16 pages
+#if defined(SSD1306_USE_I2C)
+	ssd1306_bus_error = 0;
+#endif
 	for (uint8_t i = 0; i < SSD1306_HEIGHT / 8; i++) {
 		ssd1306_WriteCommand(0xB0 + i); // Set the current RAM page address.
 		ssd1306_WriteCommand(0x00 + SSD1306_X_OFFSET_LOWER);
 		ssd1306_WriteCommand(0x10 + SSD1306_X_OFFSET_UPPER);
 		ssd1306_WriteData(&SSD1306_Buffer[SSD1306_WIDTH * i], SSD1306_WIDTH);
+#if defined(SSD1306_USE_I2C)
+		if (ssd1306_bus_error) {
+			break; // give up on this frame; the next one (100 ms later) retries
+		}
+#endif
 	}
 }
 

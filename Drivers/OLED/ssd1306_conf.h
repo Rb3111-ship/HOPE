@@ -37,7 +37,24 @@
 //#define SSD1306_Reset_Port      OLED_Res_GPIO_Port
 //#define SSD1306_Reset_Pin       OLED_Res_Pin
 
-// Mirror the screen if needed
+// Display controller. The HOPE 1.5" 128x128 OLED is an SH1107, whose init
+// sequence differs from the SSD1306 one. Comment this out for an SSD1306/SH1106.
+#define SSD1306_USE_SH1107
+
+// SH1107 tuning (only used when SSD1306_USE_SH1107 is defined).
+// Display offset: 0x00 for 128x128 panels. If the picture is shifted/wrapped
+// vertically (e.g. the top part appears at the bottom), try 0x60 or 0x20.
+#define SH1107_DISPLAY_OFFSET   0x00
+// DC-DC setting sent with command 0xAD (value used by Adafruit's SH1107
+// driver). If the screen stays completely dark, try 0x8B or 0x81.
+#define SH1107_DCDC_SETTING     0x8A
+
+// Brightness 0x00-0xFF. 0xFF = maximum; a lower value (e.g. 0x40) is gentler
+// in a dark nursery and slows OLED burn-in.
+#define SSD1306_CONTRAST        0xFF
+
+// Mirror the screen if needed (for SH1107: HORIZ flips left/right, VERT flips
+// up/down; both together = rotate 180 degrees)
 // #define SSD1306_MIRROR_VERT
 // #define SSD1306_MIRROR_HORIZ
 

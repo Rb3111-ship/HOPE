@@ -10,11 +10,13 @@
 
 #include "DS3231_RTC_driver.h"
 #include <stdint.h>
+#include <stdbool.h>
 
 // Service Layer Application Programming Interface Prototypes
 void get_Time(uint8_t *hours, uint8_t *mins);
 void set_TimeMins(uint8_t  mins);
 void set_TimeH(uint8_t  hours);
-void confirm_time();
+void confirm_time(void);
+bool time_is_valid(void);  // false until the RTC has been read once
 
 #endif /* SRC_SERVICES_TIME_SERVICE_H_ */
