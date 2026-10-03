@@ -87,10 +87,45 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) { // called automatically by HAL 
 	default:
 		return;
 	}
+	msg.data.value = GPIO_Pin;               // lets the UI task re-check the pin
+	msg.tick = xTaskGetTickCountFromISR();   // when the edge happened
 
 	xQueueSendFromISR(uiQueueHandle, &msg, &xHigherPriorityTaskWoken);
 	portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 
+}
+
+/*
+ * Touch noise filter. Electrical noise (e.g. from the audio/LED ground) can make
+ * a TTP223 output twitch, which looks like a touch. A real touch keeps the
+ * output high for well over TOUCH_CONFIRM_MS, so re-read the pin that long
+ * after the edge: if it's already low, it was a glitch. If the UI was busy and
+ * the event is older than that, it can't be verified, so it's accepted rather
+ * than risk dropping a real (quick) tap.
+ * Also ignores a second edge from the same sensor within TOUCH_REPEAT_MS.
+ */
+#define TOUCH_CONFIRM_MS 25U
+#define TOUCH_REPEAT_MS  150U
+static bool touch_is_real(const ui_msg_t *m) {
+	static uint16_t last_pin = 0;
+	static TickType_t last_tick = 0;
+	uint16_t pin = m->data.value;
+	GPIO_TypeDef *port = (pin == BTN_LIGHT_Pin) ? BTN_LIGHT_GPIO_Port : GPIOB;
+
+	TickType_t age = xTaskGetTickCount() - m->tick;
+	if (age < pdMS_TO_TICKS(TOUCH_CONFIRM_MS)) {
+		vTaskDelay(pdMS_TO_TICKS(TOUCH_CONFIRM_MS) - age);
+		if (HAL_GPIO_ReadPin(port, pin) != GPIO_PIN_SET) {
+			return false; // output already dropped: noise spike, not a finger
+		}
+	}
+
+	if (pin == last_pin && (m->tick - last_tick) < pdMS_TO_TICKS(TOUCH_REPEAT_MS)) {
+		return false; // double edge from one touch
+	}
+	last_pin = pin;
+	last_tick = m->tick;
+	return true;
 }
 
 static void volume(evt_type_t msg) {
@@ -217,7 +252,8 @@ void ui_Task(void *pvParameters) {
 			}
 		}
 
-		if (xQueueReceive(uiQueueHandle, &msg, xDelay100ms) == pdPASS) {
+		if (xQueueReceive(uiQueueHandle, &msg, xDelay100ms) == pdPASS
+				&& touch_is_real(&msg)) {
 
 			if (currentState == UI_ALARM_FIRING) {
 				if ((msg.evt == EVT_BTN_TIMER || msg.evt == EVT_BTN_PLAY
@@ -242,6 +278,11 @@ void ui_Task(void *pvParameters) {
 					ui_alarm_delete_cancel();
 					currentOverlay.type = OVERLAY_NONE;
 				}
+
+			} else if ((msg.evt == EVT_BTN_VOL_UP || msg.evt == EVT_BTN_VOL_DOWN)
+					&& currentState != UI_STATE_NOWPLAYING_BLE) {
+				// Volume works on every screen (in Bluetooth mode the phone sets the volume)
+				volume(msg.evt);
 
 			} else {
 
@@ -446,11 +487,6 @@ void ui_Task(void *pvParameters) {
 						currentState = UI_STATE_NOWPLAYING_DF;
 					}
 
-					else if (msg.evt == EVT_BTN_VOL_UP
-							|| msg.evt == EVT_BTN_VOL_DOWN) {
-						volume(msg.evt);
-
-					}
 
 					break;
 
@@ -533,11 +569,6 @@ void ui_Task(void *pvParameters) {
 
 					}
 
-					else if (msg.evt == EVT_BTN_VOL_UP
-							|| msg.evt == EVT_BTN_VOL_DOWN) {
-						volume(msg.evt);
-
-					}
 
 					break;
 
@@ -622,11 +653,6 @@ void ui_Task(void *pvParameters) {
 						currentState = UI_STATE_NOWPLAYING_DF;
 					}
 
-					else if (msg.evt == EVT_BTN_VOL_UP
-							|| msg.evt == EVT_BTN_VOL_DOWN) {
-
-						volume(msg.evt);
-					}
 					break;
 
 				case UI_LIGHT_LIST:

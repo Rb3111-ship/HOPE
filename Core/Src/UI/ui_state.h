@@ -64,6 +64,7 @@ typedef struct {
         uint16_t value;        // For simple values
         sensor_data_t sensor;  // For sensor data
     } data;
+    uint32_t tick;   // RTOS tick when the event happened (touch noise filter)
 } ui_msg_t;
 
 #endif /* SRC_UI_UI_STATE_H_ */
